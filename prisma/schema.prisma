@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Member {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  phoneNumber  String
+  bvnHash      String   @unique
+  bvnVerified  Boolean  @default(false)
+  bvnVerifiedAt DateTime?
+  role         String   @default("member")
+  isActive     Boolean  @default(true)
+  cooperatives CooperativeMember[]
+  contributions Contribution[]
+  withdrawalRequests WithdrawalRequest[] @relation("RequestedBy")
+  signatures  WithdrawalSignature[]
+}
+
+model Cooperative {
+  id                     String   @id
+  name                   String
+  registrationNumber     String   @unique
+  state                  String
+  cooperativeType        String
+  nombaVirtualAccountRef String
+  nombaAccountId         String
+  healthScore            Int      @default(0)
+  healthScoreUpdatedAt   DateTime @updatedAt
+  isActive               Boolean  @default(true)
+  memberCount            Int      @default(0)
+  balance                Float    @default(0)
+  members                CooperativeMember[]
+  contributions          Contribution[]
+  withdrawalRequests     WithdrawalRequest[]
+  fraudAlerts            FraudAlert[]
+  auditEvents            AuditEvent[]
+  reports                WhistleblowerReport[]
+}
+
+model CooperativeMember {
+  id            String      @id @default(cuid())
+  cooperativeId String
+  memberId      String
+  role          String      @default("member")
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
+  member        Member      @relation(fields: [memberId], references: [id])
+
+  @@unique([cooperativeId, memberId])
+}
+
+model Contribution {
+  id                 String    @id @default(cuid())
+  memberId           String
+  cooperativeId      String
+  amount             Float
+  nombaTransactionRef String   @unique
+  status             String
+  riskScore          Float
+  contributedAt      DateTime  @default(now())
+  member             Member    @relation(fields: [memberId], references: [id])
+  cooperative        Cooperative @relation(fields: [cooperativeId], references: [id])
+}
+
+model WithdrawalRequest {
+  id                 String    @id @default(cuid())
+  cooperativeId      String
+  requestedById      String
+  amount             Float
+  destinationAccount String
+  destinationBankCode String
+  purpose            String
+  riskScore          Float
+  status             String
+  nombaTransferRef   String?
+  createdAt          DateTime  @default(now())
+  average30d         Float
+  signatureCount     Int       @default(0)
+  explanations       Json
+  cooperative        Cooperative @relation(fields: [cooperativeId], references: [id])
+  requestedBy        Member    @relation("RequestedBy", fields: [requestedById], references: [id])
+  signatures         WithdrawalSignature[]
+}
+
+model WithdrawalSignature {
+  id                  String   @id @default(cuid())
+  withdrawalRequestId String
+  signedById         String
+  role               String
+  signedAt           DateTime @default(now())
+  withdrawalRequest   WithdrawalRequest @relation(fields: [withdrawalRequestId], references: [id])
+  signedBy            Member   @relation(fields: [signedById], references: [id])
+}
+
+model FraudAlert {
+  id             String   @id @default(cuid())
+  cooperativeId  String
+  alertType      String
+  riskScore      Float
+  triggeredBy    String
+  evidenceJson   Json
+  status         String
+  createdAt      DateTime @default(now())
+  title          String
+  reason         String
+  severity       String
+  cooperative    Cooperative @relation(fields: [cooperativeId], references: [id])
+}
+
+model WhistleblowerReport {
+  id                String   @id @default(cuid())
+  cooperativeId     String?
+  submittedAt       DateTime @default(now())
+  report            String
+  supportingDetails String?
+  status            String
+  cooperative       Cooperative? @relation(fields: [cooperativeId], references: [id])
+}
+
+model AuditEvent {
+  id            String   @id @default(cuid())
+  cooperativeId String
+  eventType     String
+  description   String
+  metadata      Json
+  createdAt     DateTime @default(now())
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
+}
