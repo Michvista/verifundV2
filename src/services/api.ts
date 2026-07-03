@@ -4,26 +4,34 @@ import {
   pendingQueue as localQueue,
   trustBars as localTrustBars,
   trustHistory as localTrustHistory,
-} from '../data';
+} from "../data";
 
-const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:5050/api';
+const baseUrl =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  "http://localhost:5050/api";
 
-async function request<T>(path: string, init?: RequestInit, fallback?: T): Promise<T> {
-  const token = localStorage.getItem('verifund_token');
-  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+async function request<T>(
+  path: string,
+  init?: RequestInit,
+  fallback?: T,
+): Promise<T> {
+  const token = localStorage.getItem("verifund_token");
+  const authHeaders: Record<string, string> = token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 
   try {
     const response = await fetch(`${baseUrl}${path}`, {
       ...init,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...authHeaders,
         ...(init?.headers || {}),
       },
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => '');
+      const errorText = await response.text().catch(() => "");
       let errorMsg = `Request failed: ${response.status}`;
       try {
         const errorJson = JSON.parse(errorText);
@@ -72,16 +80,36 @@ export type QueueItem = (typeof localQueue)[number] & {
 };
 
 export async function login(memberId: string) {
-  return request<{ token: string; member: { id: string; firstName: string; lastName: string; role: string } }>('/auth/login', {
-    method: 'POST',
+  return request<{
+    token: string;
+    member: { id: string; firstName: string; lastName: string; role: string };
+  }>("/auth/login", {
+    method: "POST",
     body: JSON.stringify({ memberId }),
   });
 }
 
 export type RegisterResponse = {
-  member: { id: string; firstName: string; lastName: string; role: string; cooperativeId?: string };
-  verification: { verified: boolean; duplicateCount: number; bvnNameMatch: boolean; details: any };
-  nomba: { accountCreated: boolean; virtualAccountCreated: boolean; accountRef: string; accountNumber?: string; bankName?: string };
+  member: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    role: string;
+    cooperativeId?: string;
+  };
+  verification: {
+    verified: boolean;
+    duplicateCount: number;
+    bvnNameMatch: boolean;
+    details: any;
+  };
+  nomba: {
+    accountCreated: boolean;
+    virtualAccountCreated: boolean;
+    accountRef: string;
+    accountNumber?: string;
+    bankName?: string;
+  };
 };
 
 export async function register(payload: {
@@ -90,19 +118,27 @@ export async function register(payload: {
   phoneNumber: string;
   bvnHash: string;
 }) {
-  return request<RegisterResponse>('/auth/register', {
-    method: 'POST',
+  return request<RegisterResponse>("/auth/register", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function getBanks() {
-  return request<{ banks: Array<{ code: string; name: string }>; mode: string }>('/nomba/banks');
+  return request<{
+    banks: Array<{ code: string; name: string }>;
+    mode: string;
+  }>("/nomba/banks");
 }
 
 export async function verifyAccount(accountNumber: string, bankCode: string) {
-  return request<{ verified: boolean; accountName: string | null; provider: string; error?: string }>('/nomba/verify-account', {
-    method: 'POST',
+  return request<{
+    verified: boolean;
+    accountName: string | null;
+    provider: string;
+    error?: string;
+  }>("/nomba/verify-account", {
+    method: "POST",
     body: JSON.stringify({ accountNumber, bankCode }),
   });
 }
@@ -121,37 +157,42 @@ export async function simulateDeposit(payload: {
     payload: any;
     signature: string;
     response: any;
-  }>('/nomba/simulate-deposit', {
-    method: 'POST',
+  }>("/nomba/simulate-deposit", {
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function getDashboard() {
-  return request<DashboardResponse>('/dashboard', undefined, {
+  return request<DashboardResponse>("/dashboard", undefined, {
     ...localDashboard,
-    cooperativeId: 'okafor-farmers-thrift',
+    cooperativeId: "okafor-farmers-thrift",
     healthScore: 92,
   });
 }
 
 export async function getTrustScore(cooperativeId: string) {
-  return request<TrustScoreResponse>(`/cooperative/${cooperativeId}/trust-score`, undefined, {
-    id: cooperativeId,
-    name: 'Okafor Farmers Thrift & Credit',
-    score: 92,
-    summary: 'This cooperative maintains a 98% timely contribution rate and has no outstanding dispute records.',
-    scoreBreakdown: localTrustBars,
-    history: localTrustHistory,
-  });
+  return request<TrustScoreResponse>(
+    `/cooperative/${cooperativeId}/trust-score`,
+    undefined,
+    {
+      id: cooperativeId,
+      name: "Okafor Farmers Thrift & Credit",
+      score: 92,
+      summary:
+        "This cooperative maintains a 98% timely contribution rate and has no outstanding dispute records.",
+      scoreBreakdown: localTrustBars,
+      history: localTrustHistory,
+    },
+  );
 }
 
 export async function getAlerts() {
-  return request<{ alerts: AlertItem[] }>('/alerts', undefined, {
+  return request<{ alerts: AlertItem[] }>("/alerts", undefined, {
     alerts: localAlerts.map((a, idx) => ({
       ...a,
       id: `alert-mock-${idx}`,
-      riskScore: a.severity === 'High' ? 0.85 : 0.45,
+      riskScore: a.severity === "High" ? 0.85 : 0.45,
       evidence: { details: a.reason },
     })) as AlertItem[],
   });
@@ -162,14 +203,14 @@ export async function getAlert(id: string) {
 }
 
 export async function getQueue() {
-  return request<{ queue: QueueItem[] }>('/withdrawals', undefined, {
+  return request<{ queue: QueueItem[] }>("/withdrawals", undefined, {
     queue: localQueue.map((q) => ({
       ...q,
-      destinationAccount: '0123456789',
-      destinationBankCode: '058',
-      purpose: 'Emergency Member Loan disbursement',
-      requestedBy: 'Treasurer',
-      signatureCount: q.sigs.split('■').length - 1,
+      destinationAccount: "0123456789",
+      destinationBankCode: "058",
+      purpose: "Emergency Member Loan disbursement",
+      requestedBy: "Treasurer",
+      signatureCount: q.sigs.split("■").length - 1,
       average30d: 500000,
       explanations: [q.status],
     })) as QueueItem[],
@@ -181,47 +222,71 @@ export async function getQueueItem(id: string) {
 }
 
 export async function requestWithdrawal(payload: Record<string, unknown>) {
-  return request<{ withdrawalId: string; riskScore: number; riskCategory: string; reasons: string[]; status: string }>(
-    '/withdrawals/request',
+  return request<{
+    withdrawalId: string;
+    riskScore: number;
+    riskCategory: string;
+    reasons: string[];
+    status: string;
+  }>("/withdrawals/request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function signWithdrawal(
+  id: string,
+  payload: Record<string, unknown>,
+) {
+  return request<{
+    withdrawalId: string;
+    signatureCount: number;
+    status: string;
+  }>(`/withdrawals/${id}/sign`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function releaseWithdrawal(
+  id: string,
+  payload: Record<string, unknown>,
+) {
+  return request<{ transferRef: string; status: string; provider: string }>(
+    `/withdrawals/${id}/release`,
     {
-      method: 'POST',
+      method: "POST",
       body: JSON.stringify(payload),
     },
   );
 }
 
-export async function signWithdrawal(id: string, payload: Record<string, unknown>) {
-  return request<{ withdrawalId: string; signatureCount: number; status: string }>(`/withdrawals/${id}/sign`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function releaseWithdrawal(id: string, payload: Record<string, unknown>) {
-  return request<{ transferRef: string; status: string; provider: string }>(`/withdrawals/${id}/release`, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
-export async function createVirtualAccount(cooperativeId: string, payload: Record<string, unknown>) {
+export async function createVirtualAccount(
+  cooperativeId: string,
+  payload: Record<string, unknown>,
+) {
   return request(`/cooperatives/${cooperativeId}/virtual-account`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
 export async function submitContribution(payload: Record<string, unknown>) {
   return request(`/contribution`, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function submitWhistleblowerReport(payload: { report: string; supportingDetails?: string }) {
-  return request<{ success: boolean; whistleblowerReportId: string }>('/fraud/whistleblower/report', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
+export async function submitWhistleblowerReport(payload: {
+  report: string;
+  supportingDetails?: string;
+}) {
+  return request<{ success: boolean; whistleblowerReportId: string }>(
+    "/fraud/whistleblower/report",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
 }
-

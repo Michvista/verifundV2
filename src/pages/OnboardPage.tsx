@@ -1,19 +1,19 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { register, type RegisterResponse } from '../services/api';
+import { useState } from "react";
+import { useNavigate, Link } from "react-router-dom";
+import { register, type RegisterResponse } from "../services/api";
 
-type Step = 'form' | 'success';
+type Step = "form" | "success";
 
 export function OnboardPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<Step>('form');
+  const [step, setStep] = useState<Step>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [bvn, setBvn] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [bvn, setBvn] = useState("");
 
   const [result, setResult] = useState<RegisterResponse | null>(null);
 
@@ -22,19 +22,27 @@ export function OnboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await register({ firstName, lastName, phoneNumber: phone, bvnHash: bvn });
+      const res = await register({
+        firstName,
+        lastName,
+        phoneNumber: phone,
+        bvnHash: bvn,
+      });
       setResult(res);
-      setStep('success');
+      setStep("success");
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Registration failed. Please try again.';
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Registration failed. Please try again.";
       setError(message);
-      console.error('Registration error:', err);
+      console.error("Registration error:", err);
     } finally {
       setLoading(false);
     }
   }
 
-  if (step === 'success' && result) {
+  if (step === "success" && result) {
     return (
       <div className="onboard-shell">
         <div className="stepper">
@@ -46,12 +54,17 @@ export function OnboardPage() {
         <section className="center-card page-reveal" style={{ maxWidth: 520 }}>
           <div className="eyebrow">Registration Complete</div>
           <h2>Welcome, {result.member.firstName}!</h2>
-          <p>Your member profile and a Nomba-backed virtual treasury have been created.</p>
+          <p>
+            Your member profile and a Nomba-backed virtual treasury have been
+            created.
+          </p>
 
           <div className="success-block">
             <div className="success-block__row">
               <span>Member ID</span>
-              <strong style={{ fontFamily: 'monospace' }}>{result.member.id}</strong>
+              <strong style={{ fontFamily: "monospace" }}>
+                {result.member.id}
+              </strong>
             </div>
             <div className="success-block__row">
               <span>Role</span>
@@ -59,33 +72,42 @@ export function OnboardPage() {
             </div>
             <div className="success-block__row">
               <span>BVN Verified</span>
-              <strong style={{ color: result.verification.verified ? 'var(--accent)' : 'var(--danger)' }}>
-                {result.verification.verified ? '✓ Verified' : '✗ Unverified'}
+              <strong
+                style={{
+                  color: result.verification.verified
+                    ? "var(--accent)"
+                    : "var(--danger)",
+                }}>
+                {result.verification.verified ? "✓ Verified" : "✗ Unverified"}
               </strong>
             </div>
           </div>
 
           <div className="nomba-explanation">
-            <div className="eyebrow" style={{ marginBottom: 8 }}>Why a Virtual Account?</div>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>
+              Why a Virtual Account?
+            </div>
             <p>
-              The virtual account isn't just a feature — it's the entire anti-absconding mechanism.
-              All contributions flow into a dedicated Nomba virtual account.
-              The treasurer <em>structurally cannot touch the money</em> — every disbursement
-              is gated by multi-signature approval and risk scoring before Nomba releases funds.
-              VeriFund turns cases like Micheno (₦2B) and Covenant Fadama (₦178M, 44,000 victims)
-              into prevention use cases, not post-fraud investigations.
+              The virtual account isn't just a feature — it's the entire
+              anti-absconding mechanism. All contributions flow into a dedicated
+              Nomba virtual account. The treasurer{" "}
+              <em>structurally cannot touch the money</em> — every disbursement
+              is gated by multi-signature approval and risk scoring before Nomba
+              releases funds. VeriFund turns cases like Micheno (₦2B) and
+              Covenant Fadama (₦178M, 44,000 victims) into prevention use cases,
+              not post-fraud investigations.
             </p>
           </div>
 
           <div className="notice" style={{ marginTop: 0 }}>
-            Save your Member ID: <strong>{result.member.id}</strong> — you'll use it to log in.
+            Save your Member ID: <strong>{result.member.id}</strong> — you'll
+            use it to log in.
           </div>
 
           <button
             className="button button--primary button--full"
             style={{ marginTop: 16 }}
-            onClick={() => navigate('/login')}
-          >
+            onClick={() => navigate("/login")}>
             Go to Login →
           </button>
         </section>
@@ -105,8 +127,8 @@ export function OnboardPage() {
         <div className="eyebrow">New Member Registration</div>
         <h2>Create your VeriFund account</h2>
         <p>
-          Your BVN will be verified against the cooperative registry and linked to a Nomba
-          virtual account for contribution tracking.
+          Your BVN will be verified against the cooperative registry and linked
+          to a Nomba virtual account for contribution tracking.
         </p>
 
         <label className="input-block">
@@ -141,7 +163,9 @@ export function OnboardPage() {
           <span>BVN (11 digits)</span>
           <input
             value={bvn}
-            onChange={(e) => setBvn(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
+            onChange={(e) =>
+              setBvn(e.target.value.replace(/[^0-9]/g, "").slice(0, 11))
+            }
             placeholder="•••• •••• •••"
             inputMode="numeric"
           />
@@ -154,22 +178,23 @@ export function OnboardPage() {
         )}
 
         <div className="notice" style={{ marginTop: 18 }}>
-          This data is stored securely. Your BVN is hashed before storage and never exposed in
-          client state.
+          This data is stored securely. Your BVN is hashed before storage and
+          never exposed in client state.
         </div>
 
         <button
           className="button button--primary button--full"
           style={{ marginTop: 16 }}
-          disabled={!firstName || !lastName || !phone || bvn.length !== 11 || loading}
-          onClick={handleSubmit}
-        >
-          {loading ? 'Creating account…' : 'Create Account & Verify BVN'}
+          disabled={
+            !firstName || !lastName || !phone || bvn.length !== 11 || loading
+          }
+          onClick={handleSubmit}>
+          {loading ? "Creating account…" : "Create Account & Verify BVN"}
         </button>
 
         <p style={{ marginTop: 16, fontSize: 13 }}>
-          Already registered?{' '}
-          <Link to="/login" style={{ color: 'var(--accent)', fontWeight: 600 }}>
+          Already registered?{" "}
+          <Link to="/login" style={{ color: "var(--accent)", fontWeight: 600 }}>
             Log in here
           </Link>
         </p>
