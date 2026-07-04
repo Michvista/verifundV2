@@ -27,6 +27,26 @@ import { scoreContribution, scoreWithdrawal } from "./riskScoring";
 import type { Cooperative } from "../types";
 import { broadcastFeedEvent } from "./realtime";
 
+const emptyDashboard = {
+  balance: 0,
+  nextContribution: "No active cooperative",
+  tenure: "0 Months Active",
+  trustScore: 0,
+  loanStatus: "Unavailable",
+  activityFeed: [],
+  contributionTrend: [],
+  contributionHistory: [],
+};
+
+const emptyTrustScore = {
+  id: "",
+  name: "No cooperative selected",
+  score: 0,
+  summary: "Create a cooperative to generate a live trust score.",
+  scoreBreakdown: [],
+  history: [],
+};
+
 export async function getDashboardData(
   cooperativeId = getFirstCooperativeId(),
 ) {
@@ -131,6 +151,7 @@ export async function registerMember(input: {
   lastName: string;
   phoneNumber: string;
   bvnHash: string;
+  role?: "member" | "treasurer" | "executive1" | "executive2" | "admin" | "regulator";
 }) {
   if (!usingDatabase) {
     const verification = verifyMemberByBvnHash(input.bvnHash);
@@ -164,7 +185,7 @@ export async function registerMember(input: {
         bvnHash: input.bvnHash,
         bvnVerified: existing.length === 0,
         bvnVerifiedAt: existing.length === 0 ? new Date() : null,
-        role: "member",
+        role: input.role || "member",
         isActive: true,
       },
     });

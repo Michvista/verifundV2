@@ -269,7 +269,7 @@ export function releaseWithdrawal(withdrawalId: string) {
   return withdrawal;
 }
 
-export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; bvnHash: string }) {
+export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; bvnHash: string; role?: Member['role'] }) {
   const existing = state.members.find((member) => member.bvnHash === input.bvnHash);
   const member: Member = {
     id: `mem_${Date.now()}`,
@@ -279,7 +279,7 @@ export function createMember(input: { firstName: string; lastName: string; phone
     bvnHash: input.bvnHash,
     bvnVerified: !existing,
     bvnVerifiedAt: !existing ? now() : undefined,
-    role: 'member',
+    role: input.role || 'member',
     isActive: true,
   };
   state.members.unshift(member);

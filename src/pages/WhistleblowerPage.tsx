@@ -34,9 +34,8 @@ export function WhistleblowerPage() {
           <div className="eyebrow">Report Submitted</div>
           <h2>Thank you for your report</h2>
           <p>
-            Your submission has been routed securely into the fraud triage queue.
-            Reporter identity is masked by default — only the assigned regulator can
-            access this report.
+            Your submission has been routed into the fraud triage queue. Reporter identity is
+            masked by default.
           </p>
           {reportId && (
             <div className="success-block" style={{ marginTop: 18 }}>
@@ -52,7 +51,12 @@ export function WhistleblowerPage() {
           <button
             className="button button--ghost button--full"
             style={{ marginTop: 16 }}
-            onClick={() => { setSubmitted(false); setReport(''); setDetails(''); setReportId(null); }}
+            onClick={() => {
+              setSubmitted(false);
+              setReport('');
+              setDetails('');
+              setReportId(null);
+            }}
           >
             Submit another report
           </button>
@@ -67,15 +71,14 @@ export function WhistleblowerPage() {
         <div className="eyebrow">Anonymous Fraud Report</div>
         <h2>Submit concerns without revealing your identity</h2>
         <p>
-          We'll route this through the fraud triage queue and mask reporter details by default.
-          Your submission is encrypted end-to-end.
+          We route this through the fraud triage queue and mask reporter details by default.
         </p>
 
         <label className="input-block">
           <span>What happened?</span>
           <textarea
             rows={5}
-            placeholder="Describe the activity, date, and people involved…"
+            placeholder="Describe the activity, date, and people involved..."
             value={report}
             onChange={(e) => setReport(e.target.value)}
           />
@@ -102,7 +105,7 @@ export function WhistleblowerPage() {
           disabled={!report.trim() || loading}
           onClick={handleSubmit}
         >
-          {loading ? 'Sending report…' : 'Send Report Anonymously'}
+          {loading ? 'Sending report...' : 'Send Report Anonymously'}
         </button>
       </section>
     </div>

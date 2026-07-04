@@ -19,16 +19,17 @@ export async function simulateWebhookController(req: Request, res: Response) {
     timestamp: new Date().toISOString(),
   };
 
-  const secret = process.env.NOMBA_WEBHOOK_SECRET || 'jhgh';
+  const secret = process.env.NOMBA_WEBHOOK_SECRET;
   const bodyString = JSON.stringify(payload);
 
   let signature: string;
-  const isPlaceholder = !secret || secret.trim() === '' || secret.startsWith('replace-with-your-');
-  if (isPlaceholder) {
-    signature = 'mock-signature-abc';
-  } else {
-    signature = crypto.createHmac('sha256', secret).update(bodyString).digest('hex');
+  if (!secret || secret.trim() === '' || secret.startsWith('replace-with-your-')) {
+    return res.status(400).json({
+      success: false,
+      message: 'Set NOMBA_WEBHOOK_SECRET before using the webhook simulator.',
+    });
   }
+  signature = crypto.createHmac('sha256', secret).update(bodyString).digest('hex');
 
   const port = process.env.PORT || 5050;
   const signatureHeader = (process.env.NOMBA_SIGNATURE_HEADER || 'signature').toLowerCase();

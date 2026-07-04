@@ -43,40 +43,38 @@ export function PublicLookupPage() {
     <div className="lookup-page">
       <section className="lookup-card page-reveal">
         <div className="eyebrow">Public Trust Registry</div>
-        <h2>Search Cooperative ID</h2>
+        <h2>Search cooperative ID</h2>
         <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 14 }}>
-          Enter a cooperative registration ID (e.g.{' '}
-          <button
-            style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: 0, fontWeight: 600 }}
-            onClick={() => setQuery('okafor-farmers-thrift')}
-          >
-            okafor-farmers-thrift
-          </button>
-          ) to view its verified trust profile.
+          Enter a real cooperative registration ID to inspect its trust profile.
         </p>
+
         <label className="input-block">
           <span>Cooperative ID or Registration Number</span>
           <input
-            placeholder="okafor-farmers-thrift"
+            placeholder="Enter cooperative ID"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLookup()}
           />
         </label>
+
         {error && (
-          <div className="callout" style={{ marginTop: 12 }}>{error}</div>
+          <div className="callout" style={{ marginTop: 12 }}>
+            {error}
+          </div>
         )}
+
         <button
           className="button button--primary button--full"
           style={{ marginTop: 16 }}
           disabled={!query.trim() || loading}
           onClick={handleLookup}
         >
-          {loading ? 'Looking up…' : 'Lookup'}
+          {loading ? 'Looking up...' : 'Lookup'}
         </button>
       </section>
 
-      {result && (
+      {result ? (
         <section className="lookup-result page-reveal">
           <div className="lookup-result__header">
             <div>
@@ -88,12 +86,14 @@ export function PublicLookupPage() {
               {result.isActive ? 'VERIFIED' : 'INACTIVE'}
             </StatusPill>
           </div>
+
           <div className="lookup-result__score">
             <div className="score-ring score-ring--xl">
               <span>{score}</span>
               <small>{score >= 80 ? 'Excellent' : score >= 60 ? 'Fair' : 'At Risk'}</small>
             </div>
           </div>
+
           <div className="success-block" style={{ marginTop: 16 }}>
             <div className="success-block__row">
               <span>Registration Number</span>
@@ -101,7 +101,7 @@ export function PublicLookupPage() {
             </div>
             <div className="success-block__row">
               <span>Member Count</span>
-              <strong>{result.memberCount != null ? result.memberCount.toLocaleString() + ' Verified' : 'N/A'}</strong>
+              <strong>{result.memberCount.toLocaleString()} Verified</strong>
             </div>
             <div className="success-block__row">
               <span>Health Score</span>
@@ -110,9 +110,15 @@ export function PublicLookupPage() {
               </strong>
             </div>
           </div>
+
           <p className="lookup-result__body">
-            This cooperative maintains an active audit trail and all contribution records are
-            cryptographically anchored to the VeriFund ledger.
+            This cooperative maintains an audit trail anchored to the VeriFund ledger.
+          </p>
+        </section>
+      ) : (
+        <section className="lookup-result page-reveal">
+          <p className="empty-state">
+            No cooperative selected yet. Use a real registration ID to load the public profile.
           </p>
         </section>
       )}

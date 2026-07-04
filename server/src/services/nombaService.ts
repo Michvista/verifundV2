@@ -344,12 +344,7 @@ export async function fetchBanks() {
  * JSON-parsed object — see webhookController.ts / app.ts for how that's captured.
  */
 export function verifyWebhookSignature(rawBody: string | Buffer, signature: string | undefined | null): boolean {
-  if (isPlaceholder(WEBHOOK_SECRET)) {
-    warnMockMode('verifyWebhookSignature');
-    // Dev-only fallback so local testing works before real credentials are set up.
-    return typeof signature === 'string' && signature.includes('mock');
-  }
-
+  if (isPlaceholder(WEBHOOK_SECRET)) return false;
   if (!signature) return false;
 
   const bodyBuffer = typeof rawBody === 'string' ? Buffer.from(rawBody) : rawBody;

@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import { createWebhookAuditData, getFirstCooperativeIdData, recalculateHealthScoreData } from '../services/repository';
+import { createWebhookAuditData, recalculateHealthScoreData } from '../services/repository';
 import { scoreContribution } from '../services/riskScoring';
 import { nombaSignatureHeader, verifyWebhookSignature } from '../services/nombaService';
 import { broadcastFeedEvent } from '../services/realtime';
@@ -32,7 +32,10 @@ export async function nombaWebhookController(req: Request, res: Response) {
     return res.status(401).json({ ok: false, message: 'Invalid webhook signature' });
   }
 
-  const cooperativeId = String(req.body?.cooperativeId || (await getFirstCooperativeIdData()));
+  const cooperativeId = String(req.body?.cooperativeId || '');
+  if (!cooperativeId) {
+    return res.status(400).json({ ok: false, message: 'cooperativeId is required in the webhook payload' });
+  }
   const contributionRisk = scoreContribution({
     amount: Number(req.body?.amount || 0),
     expectedAmount: Number(req.body?.expectedAmount || 20000),

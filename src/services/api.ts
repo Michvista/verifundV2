@@ -1,53 +1,55 @@
-import {
-  alerts as localAlerts,
-  dashboard as localDashboard,
-  pendingQueue as localQueue,
-  trustBars as localTrustBars,
-  trustHistory as localTrustHistory,
-} from "../data";
-
 const baseUrl =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
   "http://localhost:5050/api";
 
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-  fallback?: T,
-): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("verifund_token");
   const authHeaders: Record<string, string> = token
     ? { Authorization: `Bearer ${token}` }
     : {};
 
-  try {
-    const response = await fetch(`${baseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...authHeaders,
-        ...(init?.headers || {}),
-      },
-    });
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders,
+      ...(init?.headers || {}),
+    },
+  });
 
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      let errorMsg = `Request failed: ${response.status}`;
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.message) errorMsg = errorJson.message;
-      } catch {}
-      throw new Error(errorMsg);
-    }
-
-    return (await response.json()) as T;
-  } catch (_error) {
-    if (fallback !== undefined) return fallback;
-    throw _error;
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => "");
+    let errorMsg = `Request failed: ${response.status}`;
+    try {
+      const errorJson = JSON.parse(errorText);
+      if (errorJson.message) errorMsg = errorJson.message;
+    } catch {}
+    throw new Error(errorMsg);
   }
+
+  return (await response.json()) as T;
 }
 
-export type DashboardResponse = typeof localDashboard & {
+export type DashboardResponse = {
+  balance: number;
+  nextContribution: string;
+  tenure: string;
+  trustScore: number;
+  loanStatus: string;
+  activityFeed: Array<{
+    id: string;
+    title: string;
+    text: string;
+    time: string;
+  }>;
+  contributionTrend: number[];
+  contributionHistory: Array<{
+    id: string;
+    date: string;
+    amount: number;
+    status: "confirmed" | "archived";
+    reference: string;
+  }>;
   cooperativeId: string;
   healthScore: number;
 };
@@ -57,26 +59,70 @@ export type TrustScoreResponse = {
   name: string;
   score: number;
   summary: string;
-  scoreBreakdown: typeof localTrustBars;
+  scoreBreakdown: Array<{ label: string; value: number }>;
   history: number[];
 };
 
-export type AlertItem = (typeof localAlerts)[number] & {
+export type AlertItem = {
   id: string;
+  cooperativeId: string;
+  alertType: string;
   riskScore: number;
-  evidence: Record<string, unknown>;
+  triggeredBy: string;
+  evidenceJson: Record<string, unknown>;
+  status: string;
+  createdAt: string;
+  title: string;
+  reason: string;
+  severity: "Low" | "Medium" | "High";
+  evidence?: Record<string, unknown>;
+  type?: string;
 };
 
-export type QueueItem = (typeof localQueue)[number] & {
+export type QueueItem = {
   id: string;
-  riskScore: number;
+  cooperativeId: string;
+  requestedBy: string;
+  amount: number;
   destinationAccount: string;
   destinationBankCode: string;
   purpose: string;
-  requestedBy: string;
-  signatureCount: number;
+  riskScore: number;
+  status: string;
+  nombaTransferRef?: string;
+  createdAt: string;
   average30d: number;
+  signatureCount: number;
   explanations: string[];
+  ref?: string;
+  initiated?: string;
+  recipient?: string;
+  sigs?: string;
+};
+
+export type CooperativeResponse = {
+  id: string;
+  name: string;
+  registrationNumber: string;
+  state: string;
+  cooperativeType: string;
+  nombaVirtualAccountRef: string;
+  nombaAccountId: string;
+  healthScore: number;
+  healthScoreUpdatedAt: string;
+  isActive: boolean;
+  memberCount: number;
+  balance: number;
+  trustHistory?: number[];
+  scoreBreakdown?: Array<{ label: string; value: number }>;
+};
+
+export type VirtualAccountResponse = {
+  accountId?: string;
+  accountRef?: string;
+  accountNumber?: string;
+  bankName?: string;
+  success?: boolean;
 };
 
 export async function login(memberId: string) {
@@ -117,11 +163,45 @@ export async function register(payload: {
   lastName: string;
   phoneNumber: string;
   bvnHash: string;
+  role?: string;
 }) {
   return request<RegisterResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function createCooperative(payload: {
+  name: string;
+  registrationNumber: string;
+  stateName: string;
+  cooperativeType: string;
+  bvn?: string;
+}) {
+  return request<{ cooperative: CooperativeResponse; virtualAccount: VirtualAccountResponse }>(
+    "/cooperative",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function getCooperative(cooperativeId: string) {
+  return request<CooperativeResponse>(`/cooperative/${encodeURIComponent(cooperativeId)}`);
+}
+
+export async function getDashboard(cooperativeId?: string) {
+  const suffix = cooperativeId
+    ? `?cooperativeId=${encodeURIComponent(cooperativeId)}`
+    : "";
+  return request<DashboardResponse>(`/dashboard${suffix}`);
+}
+
+export async function getTrustScore(cooperativeId: string) {
+  return request<TrustScoreResponse>(
+    `/cooperative/${encodeURIComponent(cooperativeId)}/trust-score`,
+  );
 }
 
 export async function getBanks() {
@@ -137,6 +217,7 @@ export async function verifyAccount(accountNumber: string, bankCode: string) {
     accountName: string | null;
     provider: string;
     error?: string;
+    mode?: string;
   }>("/nomba/verify-account", {
     method: "POST",
     body: JSON.stringify({ accountNumber, bankCode }),
@@ -163,39 +244,8 @@ export async function simulateDeposit(payload: {
   });
 }
 
-export async function getDashboard() {
-  return request<DashboardResponse>("/dashboard", undefined, {
-    ...localDashboard,
-    cooperativeId: "okafor-farmers-thrift",
-    healthScore: 92,
-  });
-}
-
-export async function getTrustScore(cooperativeId: string) {
-  return request<TrustScoreResponse>(
-    `/cooperative/${cooperativeId}/trust-score`,
-    undefined,
-    {
-      id: cooperativeId,
-      name: "Okafor Farmers Thrift & Credit",
-      score: 92,
-      summary:
-        "This cooperative maintains a 98% timely contribution rate and has no outstanding dispute records.",
-      scoreBreakdown: localTrustBars,
-      history: localTrustHistory,
-    },
-  );
-}
-
 export async function getAlerts() {
-  return request<{ alerts: AlertItem[] }>("/alerts", undefined, {
-    alerts: localAlerts.map((a, idx) => ({
-      ...a,
-      id: `alert-mock-${idx}`,
-      riskScore: a.severity === "High" ? 0.85 : 0.45,
-      evidence: { details: a.reason },
-    })) as AlertItem[],
-  });
+  return request<{ alerts: AlertItem[] }>("/alerts");
 }
 
 export async function getAlert(id: string) {
@@ -203,18 +253,7 @@ export async function getAlert(id: string) {
 }
 
 export async function getQueue() {
-  return request<{ queue: QueueItem[] }>("/withdrawals", undefined, {
-    queue: localQueue.map((q) => ({
-      ...q,
-      destinationAccount: "0123456789",
-      destinationBankCode: "058",
-      purpose: "Emergency Member Loan disbursement",
-      requestedBy: "Treasurer",
-      signatureCount: q.sigs.split("■").length - 1,
-      average30d: 500000,
-      explanations: [q.status],
-    })) as QueueItem[],
-  });
+  return request<{ queue: QueueItem[] }>("/withdrawals");
 }
 
 export async function getQueueItem(id: string) {
@@ -259,16 +298,6 @@ export async function releaseWithdrawal(
       body: JSON.stringify(payload),
     },
   );
-}
-
-export async function createVirtualAccount(
-  cooperativeId: string,
-  payload: Record<string, unknown>,
-) {
-  return request(`/cooperatives/${cooperativeId}/virtual-account`, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
 }
 
 export async function submitContribution(payload: Record<string, unknown>) {

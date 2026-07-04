@@ -1,32 +1,131 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createCooperative } from '../services/api';
+
+type CooperativeType = 'thrift' | 'credit' | 'multipurpose';
+
 export function AdminCooperativePage() {
+  const navigate = useNavigate();
+  const [name, setName] = useState('');
+  const [registrationNumber, setRegistrationNumber] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [cooperativeType, setCooperativeType] = useState<CooperativeType>('thrift');
+  const [bvn, setBvn] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<string | null>(null);
+
+  async function handleCreate() {
+    if (!name || !registrationNumber || !stateName) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const response = await createCooperative({
+        name,
+        registrationNumber,
+        stateName,
+        cooperativeType,
+        bvn: bvn.trim() || undefined,
+      });
+      localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
+      setResult(
+        `Created ${response.cooperative.name}. Virtual account ${response.virtualAccount.accountNumber || 'pending'} is now bound to ${response.cooperative.id}.`,
+      );
+      navigate('/cooperative');
+    } catch (err) {
+      setError((err as Error).message || 'Failed to create cooperative');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="admin-grid">
       <section className="admin-panel page-reveal">
-        <div className="eyebrow">Dashboard</div>
-        <h2>Cooperative Balance</h2>
-        <div className="admin-panel__balance">₦ 482,000.50</div>
-        <div className="admin-panel__stats">
-          <div>
-            <span>Next Contribution</span>
-            <strong>Jan 15, ₦20,000</strong>
+        <div className="eyebrow">Cooperative Setup</div>
+        <h2>Create a live cooperative record</h2>
+        <p className="empty-state" style={{ marginTop: 10 }}>
+          This page creates the treasury shell that Nomba will bind to a virtual account. No
+          seed cooperative is loaded here.
+        </p>
+
+        <label className="input-block">
+          <span>Cooperative Name</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="VeriFund Farmers Cooperative" />
+        </label>
+
+        <label className="input-block">
+          <span>Registration Number</span>
+          <input
+            value={registrationNumber}
+            onChange={(e) => setRegistrationNumber(e.target.value)}
+            placeholder="2026-XYZ-001"
+          />
+        </label>
+
+        <label className="input-block">
+          <span>State</span>
+          <input value={stateName} onChange={(e) => setStateName(e.target.value)} placeholder="Lagos" />
+        </label>
+
+        <label className="input-block">
+          <span>Cooperative Type</span>
+          <select value={cooperativeType} onChange={(e) => setCooperativeType(e.target.value as CooperativeType)}>
+            <option value="thrift">Thrift</option>
+            <option value="credit">Credit</option>
+            <option value="multipurpose">Multipurpose</option>
+          </select>
+        </label>
+
+        <label className="input-block">
+          <span>Optional BVN</span>
+          <input
+            value={bvn}
+            onChange={(e) => setBvn(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
+            placeholder="11 digits"
+            inputMode="numeric"
+          />
+        </label>
+
+        {error && (
+          <div className="callout" style={{ marginTop: 12 }}>
+            {error}
           </div>
-          <div>
-            <span>Membership Tenure</span>
-            <strong>14 Months Active</strong>
+        )}
+
+        {result && (
+          <div className="notice" style={{ marginTop: 12 }}>
+            {result}
           </div>
-          <div>
-            <span>Trust Score</span>
-            <strong>92 / Excellent</strong>
-          </div>
-        </div>
+        )}
+
+        <button className="button button--primary button--full" style={{ marginTop: 16 }} disabled={loading} onClick={handleCreate}>
+          {loading ? 'Creating cooperative...' : 'Create Cooperative'}
+        </button>
       </section>
 
       <section className="admin-panel admin-panel--dark page-reveal">
-        <div className="eyebrow">Current Loan Status</div>
-        <h2>Amount Owed</h2>
-        <div className="admin-panel__balance">₦0.00</div>
-        <div className="loan-badge">ELIGIBLE</div>
-        <button className="button button--light button--full">Apply for Credit</button>
+        <div className="eyebrow">Why it matters</div>
+        <h2>The virtual account is the control plane.</h2>
+        <div className="admin-panel__balance">No cash leaves the ledger without Nomba.</div>
+        <div className="admin-panel__stats">
+          <div>
+            <span>Contribution Routing</span>
+            <strong>Dedicated virtual account</strong>
+          </div>
+          <div>
+            <span>Withdrawal Gate</span>
+            <strong>Multi-signature approval</strong>
+          </div>
+          <div>
+            <span>Visibility</span>
+            <strong>Realtime webhook trail</strong>
+          </div>
+        </div>
+        <button className="button button--light button--full" style={{ marginTop: 24 }} onClick={() => navigate('/dashboard')}>
+          Review Dashboard
+        </button>
       </section>
     </div>
   );

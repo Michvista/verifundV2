@@ -5,6 +5,9 @@ type Props = {
 };
 
 export function BarChart({ values, height = 180, greenFrom = 9 }: Props) {
+  if (!values.length) {
+    return <div className="empty-state">No history available.</div>;
+  }
   const max = Math.max(...values);
   return (
     <div className="bar-chart" aria-hidden="true">

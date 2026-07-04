@@ -19,8 +19,8 @@ export default function App() {
       <Route path="/" element={<Shell />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="cooperative/:id" element={<CooperativePage />} />
-        <Route path="cooperative/:id/trust-score" element={<TrustScorePage />} />
+        <Route path="cooperative" element={<CooperativePage />} />
+        <Route path="cooperative/trust-score" element={<TrustScorePage />} />
         <Route path="admin/cooperative" element={<AdminCooperativePage />} />
         <Route path="admin/withdrawal" element={<WithdrawalPage />} />
         <Route path="fraud/alerts" element={<FraudAlertsPage />} />

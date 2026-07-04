@@ -8,6 +8,9 @@ type Props = {
 
 export function Sparkline({ values, stroke = '#111111', fill = 'rgba(17,17,17,0.08)', height = 120, label }: Props) {
   const width = 320;
+  if (!values.length) {
+    return <figure className="sparkline" aria-label={label} />;
+  }
   const min = Math.min(...values);
   const max = Math.max(...values);
   const points = values

@@ -3,7 +3,7 @@ import { signAuthToken } from "../services/auth";
 import { getMemberOrThrowData, registerMember } from "../services/repository";
 
 export async function registerController(req: Request, res: Response) {
-  const { firstName, lastName, phoneNumber, bvnHash } = req.body ?? {};
+  const { firstName, lastName, phoneNumber, bvnHash, role } = req.body ?? {};
   if (!firstName || !lastName || !phoneNumber || !bvnHash) {
     return res
       .status(400)
@@ -18,6 +18,7 @@ export async function registerController(req: Request, res: Response) {
       lastName: String(lastName),
       phoneNumber: String(phoneNumber),
       bvnHash: String(bvnHash),
+      role: role ? String(role) as any : undefined,
     });
 
     return res.status(201).json({

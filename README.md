@@ -190,11 +190,10 @@ Useful checks while developing:
 - Try the withdrawal and fraud alert detail modals
 - Watch live activity updates over WebSocket
 
-If you do not have Postgres running locally, the backend still starts with the seeded fallback data.
+The backend now runs against live database state only. If Postgres is unavailable, the API starts empty and you will need to create a cooperative before using the live pages.
 
 ## Notes
 
 - No API keys are committed to the repository.
 - Keep secrets in `.env` only.
-- The AI/ML layer is implemented as a practical fraud and risk scoring engine with explainable signals suited for a hackathon demo.
-
+- The AI layer is implemented as a practical fraud and risk scoring engine with explainable signals for the hackathon MVP, with a roadmap to trained ML models after the event.

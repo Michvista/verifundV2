@@ -1,14 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { login } from '../services/api';
-
-const SEED_MEMBERS = [
-  { id: 'mem-01', name: 'Amina Okafor', role: 'Treasurer' },
-  { id: 'mem-02', name: 'Bola Adewale', role: 'Executive 1' },
-  { id: 'mem-03', name: 'Chika Nwosu', role: 'Executive 2' },
-  { id: 'admin-01', name: 'Regina Ojo', role: 'Admin' },
-  { id: 'reg-01', name: 'Ifeanyi Okoro', role: 'Regulator' },
-];
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -41,15 +33,17 @@ export function LoginPage() {
 
         <section className="center-card page-reveal">
           <div className="eyebrow">Secure Access</div>
-          <h2>Sign in to your cooperative</h2>
-          <p>Enter your Member ID to access the VeriFund dashboard.</p>
+          <h2>Sign in with your member ID</h2>
+          <p>
+            Use the ID returned during registration. No demo logins, no hidden shortcuts.
+          </p>
 
           <label className="input-block">
             <span>Member ID</span>
             <input
               value={memberId}
               onChange={(e) => setMemberId(e.target.value.trim())}
-              placeholder="e.g. mem-01"
+              placeholder="Enter your member ID"
               onKeyDown={(e) => e.key === 'Enter' && memberId && handleLogin(memberId)}
             />
           </label>
@@ -66,7 +60,7 @@ export function LoginPage() {
             disabled={!memberId || loading}
             onClick={() => handleLogin(memberId)}
           >
-            {loading ? 'Verifying…' : 'Continue →'}
+            {loading ? 'Verifying...' : 'Continue'}
           </button>
 
           <p style={{ marginTop: 16, fontSize: 13 }}>
@@ -75,28 +69,6 @@ export function LoginPage() {
               Register here
             </Link>
           </p>
-        </section>
-
-        {/* Quick Login helper for hackathon demo */}
-        <section className="quick-login-card page-reveal">
-          <div className="eyebrow">Demo Quick Access</div>
-          <p style={{ marginTop: 6, fontSize: 13, color: 'var(--muted)' }}>
-            Click any seed member to log in instantly for the hackathon demo.
-          </p>
-          <div className="quick-login-grid">
-            {SEED_MEMBERS.map((m) => (
-              <button
-                key={m.id}
-                className="quick-login-btn"
-                onClick={() => handleLogin(m.id)}
-                disabled={loading}
-              >
-                <div className="quick-login-btn__name">{m.name}</div>
-                <div className="quick-login-btn__role">{m.role}</div>
-                <div className="quick-login-btn__id">{m.id}</div>
-              </button>
-            ))}
-          </div>
         </section>
       </div>
     </div>
