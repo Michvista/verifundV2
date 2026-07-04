@@ -141,6 +141,7 @@ export type RegisterResponse = {
     firstName: string;
     lastName: string;
     role: string;
+    bvnVerified: boolean;
     cooperativeId?: string;
   };
   verification: {

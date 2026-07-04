@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { authRoutes } from './routes/authRoutes';
 import { cooperativeRoutes } from './routes/cooperativeRoutes';
 import { dashboardRoutes } from './routes/dashboardRoutes';
+import { contributionRoutes } from './routes/contributionRoutes';
 import { fraudRoutes } from './routes/fraudRoutes';
 import { nombaRoutes } from './routes/nombaRoutes';
 import { riskRoutes } from './routes/riskRoutes';
@@ -53,6 +54,7 @@ export function createApp() {
   app.use('/api/cooperative', cooperativeRoutes);
   app.use('/api/cooperatives', cooperativeRoutes);
   app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/contribution', contributionRoutes);
   app.use('/api/fraud', fraudRoutes);
   app.use('/api', fraudRoutes);
   app.use('/api/nomba', nombaRoutes);

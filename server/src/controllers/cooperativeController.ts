@@ -7,8 +7,13 @@ export async function createCooperativeController(req: Request, res: Response) {
     return res.status(400).json({ message: 'name, registrationNumber, stateName, and cooperativeType are required' });
   }
 
-  const result = await createCooperativeData({ name, registrationNumber, stateName, cooperativeType, bvn });
-  return res.status(201).json(result);
+  try {
+    const result = await createCooperativeData({ name, registrationNumber, stateName, cooperativeType, bvn });
+    return res.status(201).json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Cooperative creation failed';
+    return res.status(502).json({ message: `Nomba virtual account creation failed: ${message}` });
+  }
 }
 
 export async function getCooperativeController(req: Request, res: Response) {

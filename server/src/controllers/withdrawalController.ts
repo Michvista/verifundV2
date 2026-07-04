@@ -63,15 +63,20 @@ export async function signWithdrawalController(req: Request, res: Response) {
 }
 
 export async function releaseWithdrawalController(req: Request, res: Response) {
-  const withdrawal = await releaseWithdrawalData(req.params.id);
-  if (!withdrawal) return res.status(404).json({ message: 'Withdrawal item not found' });
+  try {
+    const result = await releaseWithdrawalData(req.params.id);
+    if (!result) return res.status(404).json({ message: 'Withdrawal item not found' });
 
-  return res.json({
-    withdrawalId: withdrawal.id,
-    transferRef: withdrawal.nombaTransferRef,
-    status: withdrawal.status,
-    provider: 'nomba-mock',
-  });
+    return res.json({
+      withdrawalId: result.withdrawal.id,
+      transferRef: result.transfer.transferRef,
+      status: result.withdrawal.status,
+      provider: result.transfer.provider,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Withdrawal release failed';
+    return res.status(502).json({ message: `Nomba transfer failed: ${message}` });
+  }
 }
 
 export function withdrawalRiskPreviewController(req: Request, res: Response) {

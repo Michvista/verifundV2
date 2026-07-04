@@ -1,14 +1,4 @@
 import { randomUUID } from 'crypto';
-import {
-  seedAlerts,
-  seedAuditLog,
-  seedCooperative,
-  seedContributions,
-  seedDashboard,
-  seedMembers,
-  seedReports,
-  seedWithdrawals,
-} from '../data/seed';
 import type {
   AlertStatus,
   ApiDashboard,
@@ -35,22 +25,44 @@ type TrustScoreShape = {
 };
 
 const state = {
-  cooperatives: [seedCooperative],
-  members: [...seedMembers],
-  contributions: [...seedContributions],
-  withdrawals: [...seedWithdrawals],
+  cooperatives: [] as Cooperative[],
+  members: [] as Member[],
+  contributions: [] as Contribution[],
+  withdrawals: [] as WithdrawalRequest[],
   signatures: [] as Array<{ id: string; withdrawalRequestId: string; signedBy: string; role: 'treasurer' | 'executive1' | 'executive2'; signedAt: string }>,
-  alerts: [...seedAlerts],
-  reports: [...seedReports],
-  auditLog: [...seedAuditLog],
+  alerts: [] as FraudAlert[],
+  reports: [] as WhistleblowerReport[],
+  auditLog: [] as AuditEvent[],
+};
+
+const emptyDashboard: DashboardShape = {
+  balance: 0,
+  nextContribution: 'No active cooperative',
+  tenure: '0 Months Active',
+  trustScore: 0,
+  loanStatus: 'Unavailable',
+  activityFeed: [],
+  contributionTrend: [],
+  contributionHistory: [],
+  cooperativeId: '',
+  healthScore: 0,
+};
+
+const emptyTrustScore: TrustScoreShape = {
+  id: '',
+  name: 'No cooperative selected',
+  score: 0,
+  summary: 'Create a cooperative to generate a live trust score.',
+  scoreBreakdown: [],
+  history: [],
 };
 
 function now() {
   return new Date().toISOString();
 }
 
-function getCooperative(cooperativeId: string): Cooperative {
-  return state.cooperatives.find((item) => item.id === cooperativeId) ?? state.cooperatives[0];
+function getCooperative(cooperativeId: string): Cooperative | undefined {
+  return state.cooperatives.find((item) => item.id === cooperativeId);
 }
 
 function getMember(memberId: string): Member | undefined {
@@ -59,37 +71,59 @@ function getMember(memberId: string): Member | undefined {
 
 function toDashboard(cooperativeId: string): DashboardShape {
   const cooperative = getCooperative(cooperativeId);
+  if (!cooperative) {
+    return emptyDashboard;
+  }
   return {
-    ...seedDashboard,
+    ...emptyDashboard,
     cooperativeId: cooperative.id,
     healthScore: cooperative.healthScore,
+    balance: cooperative.balance,
+    nextContribution: 'No active contribution scheduled',
+    tenure: '0 Months Active',
+    loanStatus: cooperative.balance > 0 ? 'Eligible' : 'Unavailable',
   };
 }
 
 function toTrustScore(cooperativeId: string): TrustScoreShape {
   const cooperative = getCooperative(cooperativeId);
+  if (!cooperative) {
+    return emptyTrustScore;
+  }
   return {
     id: cooperative.id,
     name: cooperative.name,
     score: cooperative.healthScore,
-    summary: 'This cooperative maintains a 98% timely contribution rate and has no outstanding dispute records.',
-    scoreBreakdown: [
-      { label: 'Member Verification', value: 95 },
-      { label: 'Contribution Regularity', value: 88 },
-      { label: 'Loan Liquidity', value: 91 },
-      { label: 'Governance Transparency', value: 100 },
-      { label: 'External Audit Status', value: 85 },
-    ],
-    history: [...seedDashboard.contributionTrend].map((value, index) => value + index * 2),
+    summary: 'This cooperative has not yet accumulated enough live history for a scored summary.',
+    scoreBreakdown: [],
+    history: [],
   };
 }
 
-export function getDashboard(cooperativeId = state.cooperatives[0].id): DashboardShape {
+export function getDashboard(cooperativeId = ''): DashboardShape {
   return toDashboard(cooperativeId);
 }
 
 export function getCooperativeOverview(cooperativeId: string) {
   const cooperative = getCooperative(cooperativeId);
+  if (!cooperative) {
+    return {
+      id: '',
+      name: '',
+      registrationNumber: '',
+      state: '',
+      cooperativeType: 'thrift' as const,
+      nombaVirtualAccountRef: '',
+      nombaAccountId: '',
+      healthScore: 0,
+      healthScoreUpdatedAt: now(),
+      isActive: false,
+      memberCount: 0,
+      balance: 0,
+      trustHistory: [],
+      scoreBreakdown: [],
+    };
+  }
   return {
     ...cooperative,
     trustHistory: toTrustScore(cooperativeId).history,
@@ -145,6 +179,11 @@ export function recordContribution(input: {
   };
 
   state.contributions.unshift(contribution);
+  const cooperative = getCooperative(input.cooperativeId);
+  if (!cooperative) {
+    throw new Error(`Cooperative ${input.cooperativeId} not found`);
+  }
+  cooperative.balance += input.amount;
   state.auditLog.unshift({
     id: randomUUID(),
     cooperativeId: input.cooperativeId,
@@ -245,17 +284,19 @@ export function signWithdrawal(withdrawalId: string, signer: { memberId: string;
   return { withdrawal, signature };
 }
 
-export function releaseWithdrawal(withdrawalId: string) {
+export async function releaseWithdrawal(withdrawalId: string) {
   const withdrawal = getWithdrawal(withdrawalId);
   if (!withdrawal) return undefined;
 
-  withdrawal.status = 'released';
-  withdrawal.nombaTransferRef = createTransfer({
+  const transfer = await createTransfer({
     amount: withdrawal.amount,
     bankCode: withdrawal.destinationBankCode,
     destinationAccount: withdrawal.destinationAccount,
     narration: withdrawal.purpose,
-  }).transferRef;
+  });
+
+  withdrawal.status = 'released';
+  withdrawal.nombaTransferRef = transfer.transferRef;
 
   state.auditLog.unshift({
     id: randomUUID(),
@@ -266,7 +307,7 @@ export function releaseWithdrawal(withdrawalId: string) {
     createdAt: now(),
   });
 
-  return withdrawal;
+  return { withdrawal, transfer };
 }
 
 export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; bvnHash: string; role?: Member['role'] }) {
@@ -286,8 +327,8 @@ export function createMember(input: { firstName: string; lastName: string; phone
   return member;
 }
 
-export function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string }) {
-  const virtualAccount = createVirtualAccount({
+export async function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string }) {
+  const virtualAccount = await createVirtualAccount({
     accountName: input.name,
     accountRef: `va_${input.registrationNumber}`,
     bvn: input.bvn,
@@ -302,7 +343,7 @@ export function createCooperative(input: { name: string; registrationNumber: str
     cooperativeType: input.cooperativeType,
     nombaVirtualAccountRef: virtualAccount.accountRef,
     nombaAccountId: virtualAccount.accountId,
-    healthScore: 92,
+    healthScore: 0,
     healthScoreUpdatedAt: now(),
     isActive: true,
     memberCount: 0,
@@ -337,7 +378,7 @@ export function reportWhistleblower(input: { report: string; supportingDetails?:
   state.reports.unshift(report);
   const alert = {
     id: randomUUID(),
-    cooperativeId: state.cooperatives[0].id,
+    cooperativeId: state.cooperatives[0]?.id ?? '',
     alertType: 'whistleblower' as const,
     riskScore: 0.5,
     triggeredBy: 'whistleblower_triage',
@@ -354,6 +395,9 @@ export function reportWhistleblower(input: { report: string; supportingDetails?:
 
 export function recalculateHealthScore(cooperativeId: string) {
   const cooperative = getCooperative(cooperativeId);
+  if (!cooperative) {
+    return 0;
+  }
   const score = deriveHealthScore(cooperative.healthScore, state.alerts.filter((alert) => alert.cooperativeId === cooperativeId));
   cooperative.healthScore = score;
   cooperative.healthScoreUpdatedAt = now();
@@ -377,7 +421,7 @@ export function getMemberOrThrow(memberId: string) {
 }
 
 export function getFirstCooperativeId() {
-  return state.cooperatives[0].id;
+  return state.cooperatives[0]?.id ?? '';
 }
 
 export function getStateSnapshot() {

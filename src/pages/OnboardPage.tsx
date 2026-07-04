@@ -71,13 +71,20 @@ export function OnboardPage() {
               <span>BVN Verified</span>
               <strong
                 style={{
-                  color: result.verification.verified ? 'var(--accent)' : 'var(--danger)',
+                  color: result.member.bvnVerified ? 'var(--accent)' : 'var(--danger)',
                 }}
               >
-                {result.verification.verified ? 'Verified' : 'Unverified'}
+                {result.member.bvnVerified ? 'Verified' : 'Unverified'}
               </strong>
             </div>
           </div>
+
+          {!result.verification.verified && (
+            <div className="notice" style={{ marginTop: 16 }}>
+              This BVN is already linked to another profile. Use a fresh BVN if you want a new
+              member record.
+            </div>
+          )}
 
           <div className="nomba-explanation">
             <div className="eyebrow" style={{ marginBottom: 8 }}>

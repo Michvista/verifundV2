@@ -246,7 +246,7 @@ export async function createCooperativeData(input: {
   cooperativeType: Cooperative["cooperativeType"];
   bvn?: string;
 }) {
-  if (!usingDatabase) return createCooperative(input);
+  if (!usingDatabase) return await createCooperative(input);
 
   const virtualAccount = await createVirtualAccount({
     accountName: input.name,
@@ -264,7 +264,7 @@ export async function createCooperativeData(input: {
       cooperativeType: input.cooperativeType,
       nombaVirtualAccountRef: virtualAccount.accountRef,
       nombaAccountId: virtualAccount.accountId,
-      healthScore: 92,
+      healthScore: 0,
       isActive: true,
       memberCount: 0,
       balance: 0,
@@ -294,6 +294,11 @@ export async function createContributionData(input: {
       riskScore: result.riskScore,
       contributedAt: new Date(),
     },
+  });
+
+  await prisma.cooperative.update({
+    where: { id: input.cooperativeId },
+    data: { balance: { increment: input.amount } },
   });
 
   broadcastFeedEvent({
@@ -435,7 +440,7 @@ export async function signWithdrawalData(
 }
 
 export async function releaseWithdrawalData(withdrawalId: string) {
-  if (!usingDatabase) return releaseWithdrawal(withdrawalId);
+  if (!usingDatabase) return await releaseWithdrawal(withdrawalId);
 
   const withdrawal = await prisma.withdrawalRequest.findUnique({
     where: { id: withdrawalId },
@@ -461,7 +466,7 @@ export async function releaseWithdrawalData(withdrawalId: string) {
     payload: { withdrawalId, transferRef: transfer.transferRef },
   });
 
-  return updated;
+  return { withdrawal: updated, transfer };
 }
 
 export async function reportWhistleblowerData(input: {

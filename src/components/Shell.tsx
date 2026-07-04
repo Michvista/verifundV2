@@ -69,7 +69,10 @@ export function Shell() {
         <div className="sidebar__context">
           <span>Active Cooperative</span>
           <strong>{cooperativeId || 'Not set'}</strong>
-          <button className="button button--ghost button--full" onClick={() => navigate('/admin/cooperative')}>
+          <button
+            className="button button--ghost button--full"
+            onClick={() => navigate('/admin/cooperative')}
+          >
             {cooperativeId ? 'Change cooperative' : 'Create cooperative'}
           </button>
         </div>
@@ -130,7 +133,7 @@ export function Shell() {
 
             <label className="search">
               <IconSearch />
-              <input placeholder="Search ledger…" aria-label="Search passbook" />
+              <input placeholder="Search ledger..." aria-label="Search passbook" />
             </label>
             <button className="icon-button" aria-label="Notifications">
               <IconBell />

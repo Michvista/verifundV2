@@ -221,6 +221,18 @@ h1, h2, h3, p {
   gap: 24px;
 }
 
+.dashboard-layout {
+  display: grid;
+  gap: 24px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 24px;
+  align-items: start;
+}
+
 .main-stack, .side-stack {
   display: grid;
   gap: 22px;
@@ -320,6 +332,19 @@ h1, h2, h3, p {
   max-width: 250px;
 }
 
+.deposit-panel {
+  padding: 22px;
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.42);
+  display: grid;
+  gap: 14px;
+}
+
+.deposit-panel h2 {
+  font-size: 26px;
+  line-height: 1.05;
+}
+
 .section-card {
   padding: 20px;
 }
@@ -417,6 +442,10 @@ h1, h2, h3, p {
 
 .loan-card .eyebrow, .loan-card p {
   color: rgba(244,239,230,0.7);
+}
+
+.loan-card p {
+  line-height: 1.6;
 }
 
 .loan-card__amount, .admin-panel__balance {
@@ -1621,6 +1650,10 @@ button:disabled {
 
   /* Multi-col → single col layouts */
   .page-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-grid {
     grid-template-columns: 1fr;
   }
 

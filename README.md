@@ -50,7 +50,7 @@ npm install
 copy .env.example .env
 ```
 
-3. Fill in your own values in `.env`.
+3. Fill in your own values in `.env`. For local testing without Postgres, leave `DATABASE_URL` blank and the backend will use the in-memory store.
 
 4. Generate Prisma Client:
 
@@ -76,7 +76,7 @@ The frontend runs on Vite and the backend API runs on `http://localhost:5050`.
 
 Copy `.env.example` to `.env` and provide your own values only.
 
-Required values:
+Required values for a live Postgres deployment:
 
 - `DATABASE_URL`
 - `JWT_SECRET`
@@ -93,6 +93,8 @@ Suggested local values:
 - `VITE_API_BASE_URL=http://localhost:5050/api`
 - `VITE_WS_URL=ws://localhost:5050/ws`
 - `CORS_ORIGIN=http://localhost:5173`
+
+If you are just running the hackathon build locally, the backend can start without `DATABASE_URL` and will serve live in-memory state instead of seeded demo data.
 
 ## Backend API
 
