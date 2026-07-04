@@ -31,6 +31,7 @@ model Cooperative {
   cooperativeType        String
   nombaVirtualAccountRef String
   nombaAccountId         String
+  nombaVirtualAccountNumber String?
   healthScore            Int      @default(0)
   healthScoreUpdatedAt   DateTime @updatedAt
   isActive               Boolean  @default(true)

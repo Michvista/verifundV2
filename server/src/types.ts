@@ -25,6 +25,7 @@ export interface Cooperative {
   cooperativeType: CooperativeType;
   nombaVirtualAccountRef: string;
   nombaAccountId: string;
+  nombaVirtualAccountNumber?: string;
   healthScore: number;
   healthScoreUpdatedAt: string;
   isActive: boolean;

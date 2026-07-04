@@ -85,6 +85,7 @@ Required values for a live Postgres deployment:
 - `NOMBA_CLIENT_SECRET`
 - `NOMBA_ACCOUNT_ID`
 - `NOMBA_WEBHOOK_SECRET`
+- `NOMBA_ALLOW_MOCK_FALLBACK` for local testing
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 
@@ -115,6 +116,7 @@ Main API areas:
 - Dashboard summary
 - Contributions
 - Withdrawals and approvals
+- Scheduled Nomba credit sync
 - Fraud alerts
 - Trust score and registry lookup
 - Webhook/audit events
@@ -192,7 +194,7 @@ Useful checks while developing:
 - Try the withdrawal and fraud alert detail modals
 - Watch live activity updates over WebSocket
 
-The backend now runs against live database state only. If Postgres is unavailable, the API starts empty and you will need to create a cooperative before using the live pages.
+The backend starts empty without Postgres, and the Nomba credit path now has a cron-sync test route. If you want real persistence, connect Postgres and run `npm run db:push`.
 
 ## Notes
 

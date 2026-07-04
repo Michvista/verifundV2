@@ -3,7 +3,13 @@ import { Metric } from '../components/Metric';
 import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { Sparkline } from '../components/Sparkline';
-import { getDashboard, submitContribution, type DashboardResponse } from '../services/api';
+import {
+  getDashboard,
+  getNombaCronStatus,
+  queueTestNombaCredit,
+  runNombaCron,
+  type DashboardResponse,
+} from '../services/api';
 
 type UserProfile = {
   id: string;
@@ -34,9 +40,16 @@ export function DashboardPage() {
   const [cooperativeId] = useState(loadCooperativeId);
   const [user] = useState(loadUser);
   const [liveFeed, setLiveFeed] = useState<DashboardResponse['activityFeed']>([]);
-  const [depositAmount, setDepositAmount] = useState('');
-  const [depositLoading, setDepositLoading] = useState(false);
-  const [depositMsg, setDepositMsg] = useState<string | null>(null);
+  const [cronStatus, setCronStatus] = useState<{
+    running: boolean;
+    lastRunAt: string;
+    pendingCredits: number;
+    pollIntervalMs: number;
+    nombaConfigured: boolean;
+  } | null>(null);
+  const [cronMsg, setCronMsg] = useState<string | null>(null);
+  const [testAmount, setTestAmount] = useState('25000');
+  const [testRef, setTestRef] = useState('');
 
   async function refresh() {
     if (!cooperativeId) return;
@@ -45,9 +58,18 @@ export function DashboardPage() {
     setLiveFeed(data.activityFeed);
   }
 
+  async function refreshCronStatus() {
+    try {
+      setCronStatus(await getNombaCronStatus());
+    } catch {
+      setCronStatus(null);
+    }
+  }
+
   useEffect(() => {
     if (!cooperativeId) return;
     void refresh().catch(() => setDashboard(null));
+    void refreshCronStatus();
   }, [cooperativeId]);
 
   useEffect(() => {
@@ -83,25 +105,33 @@ export function DashboardPage() {
     return () => socket.close();
   }, [cooperativeId]);
 
-  async function handleDeposit() {
-    const amount = Number(depositAmount.replace(/[^0-9]/g, '') || 0);
-    if (!cooperativeId || !user || !amount) return;
-
-    setDepositLoading(true);
-    setDepositMsg(null);
+  async function handleRunCron() {
+    setCronMsg(null);
     try {
-      await submitContribution({
-        cooperativeId,
-        memberId: user.id,
-        amount,
-      });
-      setDepositMsg(`Contribution recorded: ${formatNaira(amount)}.`);
-      setDepositAmount('');
+      const result = await runNombaCron('manual');
+      setCronMsg(
+        `Cron sync ran: ${result.processedCredits} credit(s) processed from ${result.source}.`,
+      );
       await refresh();
+      await refreshCronStatus();
     } catch (err) {
-      setDepositMsg((err as Error).message);
-    } finally {
-      setDepositLoading(false);
+      setCronMsg((err as Error).message);
+    }
+  }
+
+  async function handleQueueTestCredit() {
+    if (!cooperativeId) return;
+    setCronMsg(null);
+    try {
+      const queued = await queueTestNombaCredit({
+        cooperativeId,
+        amount: Number(testAmount.replace(/[^0-9]/g, '') || 0),
+        nombaTransactionRef: testRef.trim() || undefined,
+      });
+      setCronMsg(`Queued test credit ${queued.credit.nombaTransactionRef}. Run cron sync to apply it.`);
+      await refreshCronStatus();
+    } catch (err) {
+      setCronMsg((err as Error).message);
     }
   }
 
@@ -133,19 +163,9 @@ export function DashboardPage() {
             {dashboard ? formatNaira(dashboard.balance) : 'Loading balance...'}
           </div>
           <div className="hero-card__meta">
-            <Metric
-              label="Next Contribution"
-              value={dashboard?.nextContribution ?? 'Loading...'}
-            />
-            <Metric
-              label="Membership Tenure"
-              value={dashboard?.tenure ?? 'Loading...'}
-            />
-            <Metric
-              label="Trust Score"
-              value={dashboard ? String(dashboard.trustScore) : '...'}
-              caption="Live"
-            />
+            <Metric label="Next Contribution" value={dashboard?.nextContribution ?? 'Loading...'} />
+            <Metric label="Membership Tenure" value={dashboard?.tenure ?? 'Loading...'} />
+            <Metric label="Trust Score" value={dashboard ? String(dashboard.trustScore) : '...'} caption="Live" />
           </div>
         </div>
 
@@ -155,8 +175,7 @@ export function DashboardPage() {
             <small>{dashboard ? 'Live' : 'Idle'}</small>
           </div>
           <div className="hero-card__note">
-            Cooperative funds sit in a dedicated Nomba virtual account. No treasurer can touch
-            cash directly.
+            Treasury credits are now reconciled by a cron sync instead of a webhook secret.
           </div>
           <Sparkline
             values={trend}
@@ -196,9 +215,7 @@ export function DashboardPage() {
                 ))}
               </div>
             ) : (
-              <p className="empty-state">
-                No contributions have been recorded yet for this cooperative.
-              </p>
+              <p className="empty-state">No contributions have been recorded yet for this cooperative.</p>
             )}
           </SectionCard>
 
@@ -216,36 +233,47 @@ export function DashboardPage() {
                 <span>Loaded User</span>
                 <strong>{user ? `${user.firstName} ${user.lastName}` : 'Unknown'}</strong>
               </div>
+              <div>
+                <span>Cron Status</span>
+                <strong>{cronStatus?.running ? 'Running' : 'Idle'}</strong>
+              </div>
+              <div>
+                <span>Pending Credits</span>
+                <strong>{cronStatus?.pendingCredits ?? 0}</strong>
+              </div>
             </div>
           </SectionCard>
         </div>
 
         <aside className="side-stack">
           <section className="deposit-panel page-reveal">
-            <div className="eyebrow">Drop Money</div>
-            <h2>Record a contribution</h2>
-            <p>Use this to credit the cooperative balance during local testing.</p>
+            <div className="eyebrow">Cron Sync</div>
+            <h2>Reconcile incoming money</h2>
+            <p>
+              Real balance updates should come from the scheduled Nomba sync. Use the controls below to
+              test that path locally.
+            </p>
 
             <label className="input-block">
-              <span>Amount (NGN)</span>
-              <input
-                value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
-                inputMode="numeric"
-                placeholder="Enter amount"
-              />
+              <span>Test Amount (NGN)</span>
+              <input value={testAmount} onChange={(e) => setTestAmount(e.target.value)} inputMode="numeric" />
             </label>
 
-            {depositMsg && <div className="notice" style={{ marginTop: 12 }}>{depositMsg}</div>}
+            <label className="input-block">
+              <span>Test Reference</span>
+              <input value={testRef} onChange={(e) => setTestRef(e.target.value)} placeholder="Optional ref" />
+            </label>
 
-            <button
-              className="button button--primary button--full"
-              style={{ marginTop: 16 }}
-              disabled={depositLoading || !depositAmount.trim()}
-              onClick={() => void handleDeposit()}
-            >
-              {depositLoading ? 'Recording...' : 'Credit Balance'}
-            </button>
+            {cronMsg && <div className="notice" style={{ marginTop: 12 }}>{cronMsg}</div>}
+
+            <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
+              <button className="button button--primary button--full" onClick={() => void handleQueueTestCredit()}>
+                Queue Test Credit
+              </button>
+              <button className="button button--ghost button--full" onClick={() => void handleRunCron()}>
+                Run Cron Sync Now
+              </button>
+            </div>
           </section>
 
           <section className="loan-card page-reveal">

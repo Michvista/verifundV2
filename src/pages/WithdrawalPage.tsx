@@ -1,19 +1,27 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Metric } from '../components/Metric';
 import { Modal } from '../components/Modal';
 import { StatusPill } from '../components/StatusPill';
-import { Metric } from '../components/Metric';
 import {
   getBanks,
-  verifyAccount,
   getQueue,
   getQueueItem,
+  releaseWithdrawal,
   requestWithdrawal,
   signWithdrawal,
-  releaseWithdrawal,
+  verifyAccount,
   type QueueItem,
 } from '../services/api';
 
 type Bank = { code: string; name: string };
+
+const fallbackBanks: Bank[] = [
+  { code: '058', name: 'Guaranty Trust Bank' },
+  { code: '011', name: 'First Bank of Nigeria' },
+  { code: '057', name: 'Zenith Bank' },
+  { code: '033', name: 'United Bank for Africa' },
+  { code: '044', name: 'Access Bank' },
+];
 
 function loadUser() {
   try {
@@ -54,7 +62,9 @@ export function WithdrawalPage() {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    void getBanks().then((res) => setBanks(res.banks)).catch(() => setBanks([]));
+    void getBanks()
+      .then((res) => setBanks(res.banks.length ? res.banks : fallbackBanks))
+      .catch(() => setBanks(fallbackBanks));
   }, []);
 
   useEffect(() => {
@@ -66,7 +76,7 @@ export function WithdrawalPage() {
       setSelectedQueueItem(null);
       return;
     }
-    const cached = queue.find((i) => i.id === selectedQueueId);
+    const cached = queue.find((item) => item.id === selectedQueueId);
     if (cached) {
       setSelectedQueueItem(cached);
       return;
@@ -110,6 +120,7 @@ export function WithdrawalPage() {
         destinationVerified: Boolean(verifiedName),
         accountName: verifiedName,
       });
+
       const newItem: QueueItem = {
         id: result.withdrawalId,
         cooperativeId,
@@ -127,8 +138,9 @@ export function WithdrawalPage() {
         ref: `#${result.withdrawalId.toUpperCase().slice(0, 8)}`,
         initiated: new Date().toLocaleDateString('en-GB'),
         recipient: verifiedName ?? accountNumber,
-        sigs: '□□□',
+        sigs: '□ □ □',
       };
+
       setQueue((prev) => [newItem, ...prev]);
       setSelectedQueueId(result.withdrawalId);
       setSelectedQueueItem(newItem);
@@ -154,7 +166,7 @@ export function WithdrawalPage() {
       const updated = await getQueueItem(selectedQueueId).catch(() => null);
       if (updated) {
         setSelectedQueueItem(updated);
-        setQueue((prev) => prev.map((q) => (q.id === selectedQueueId ? updated : q)));
+        setQueue((prev) => prev.map((item) => (item.id === selectedQueueId ? updated : item)));
       }
     } catch (err) {
       setActionMsg((err as Error).message);
@@ -176,7 +188,7 @@ export function WithdrawalPage() {
         accountName: selectedQueueItem.recipient,
       });
       setActionMsg(`Transfer released. Ref: ${res.transferRef} (${res.provider})`);
-      setQueue((prev) => prev.map((q) => (q.id === selectedQueueId ? { ...q, status: 'released' } : q)));
+      setQueue((prev) => prev.map((item) => (item.id === selectedQueueId ? { ...item, status: 'released' } : item)));
     } catch (err) {
       setActionMsg((err as Error).message);
     } finally {
@@ -184,7 +196,7 @@ export function WithdrawalPage() {
     }
   }
 
-  const canRelease = selectedQueueItem && (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved');
+  const canRelease = Boolean(selectedQueueItem && (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved'));
 
   if (!cooperativeId || !user) {
     return <section className="note-panel page-reveal">Log in and select a cooperative before using the withdrawal flow.</section>;
@@ -207,12 +219,7 @@ export function WithdrawalPage() {
 
           <label className="input-block">
             <span>Disbursement Amount (NGN)</span>
-            <input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="numeric"
-              placeholder="Enter amount"
-            />
+            <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="numeric" placeholder="Enter amount" />
           </label>
 
           <label className="input-block">
@@ -231,9 +238,9 @@ export function WithdrawalPage() {
               }}
             >
               <option value="">Select bank</option>
-              {banks.map((b) => (
-                <option key={b.code} value={b.code}>
-                  {b.name}
+              {banks.map((bank) => (
+                <option key={bank.code} value={bank.code}>
+                  {bank.name}
                 </option>
               ))}
             </select>
@@ -318,7 +325,13 @@ export function WithdrawalPage() {
               {actionMsg && (
                 <div
                   className="notice"
-                  style={{ color: actionMsg.startsWith('Transfer') || actionMsg.startsWith('Signature') ? 'var(--accent)' : 'var(--danger)', marginTop: 12 }}
+                  style={{
+                    color:
+                      actionMsg.startsWith('Transfer') || actionMsg.startsWith('Signature')
+                        ? 'var(--accent)'
+                        : 'var(--danger)',
+                    marginTop: 12,
+                  }}
                 >
                   {actionMsg}
                 </div>
@@ -377,7 +390,10 @@ export function WithdrawalPage() {
             <div className="risk-panel__signals">
               <Metric label="30-day average" value={formatNaira(Math.max(amountValue / 2, 1))} />
               <Metric label="Requested amount" value={formatNaira(amountValue || 0)} />
-              <Metric label="Deviation" value={amountValue ? `${Math.round((amountValue / Math.max(amountValue / 2, 1) - 1) * 100)}%` : '0%'} />
+              <Metric
+                label="Deviation"
+                value={amountValue ? `${Math.round((amountValue / Math.max(amountValue / 2, 1) - 1) * 100)}%` : '0%'}
+              />
               <Metric label="Destination" value={verifiedName ?? 'Unverified'} />
             </div>
           </div>
@@ -408,7 +424,6 @@ export function WithdrawalPage() {
               <span>Status</span>
             </div>
             {queue.map((row) => {
-              const displayAmount = typeof row.amount === 'number' ? formatNaira(row.amount) : formatNaira(row.amount);
               const statusTone =
                 row.status.includes('risk') || row.status.includes('Risk')
                   ? ('warn' as const)
@@ -426,7 +441,7 @@ export function WithdrawalPage() {
                   <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{row.ref ?? row.id}</span>
                   <span>{row.initiated ?? new Date(row.createdAt).toLocaleDateString('en-GB')}</span>
                   <span>{row.recipient ?? row.requestedBy}</span>
-                  <span>{displayAmount}</span>
+                  <span>{formatNaira(row.amount)}</span>
                   <span className="sig-chips">{row.sigs ?? `${row.signatureCount}/3`}</span>
                   <span>
                     <StatusPill tone={statusTone}>{row.status.replace(/_/g, ' ').toUpperCase()}</StatusPill>

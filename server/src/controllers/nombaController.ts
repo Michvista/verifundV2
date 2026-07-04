@@ -1,10 +1,11 @@
 import type { Request, Response } from 'express';
-import { fetchBanks, isNombaConfigured, lookupBankAccount } from '../services/nombaService';
+import { fallbackBanks, fetchBanks, isNombaConfigured, lookupBankAccount } from '../services/nombaService';
 
 export async function listBanksController(_req: Request, res: Response) {
   try {
     const banks = await fetchBanks();
-    return res.json({ banks, mode: isNombaConfigured() ? 'live' : 'mock' });
+    const mode = isNombaConfigured() ? (banks === fallbackBanks ? 'fallback' : 'live') : 'mock';
+    return res.json({ banks, mode });
   } catch (error) {
     return res.status(502).json({ message: (error as Error).message });
   }

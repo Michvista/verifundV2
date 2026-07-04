@@ -264,6 +264,7 @@ export async function createCooperativeData(input: {
       cooperativeType: input.cooperativeType,
       nombaVirtualAccountRef: virtualAccount.accountRef,
       nombaAccountId: virtualAccount.accountId,
+      nombaVirtualAccountNumber: virtualAccount.accountNumber,
       healthScore: 0,
       isActive: true,
       memberCount: 0,

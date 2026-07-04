@@ -245,6 +245,47 @@ export async function simulateDeposit(payload: {
   });
 }
 
+export async function getNombaCronStatus() {
+  return request<{
+    running: boolean;
+    lastRunAt: string;
+    pendingCredits: number;
+    pollIntervalMs: number;
+    nombaConfigured: boolean;
+  }>("/cron/nomba/status");
+}
+
+export async function runNombaCron(trigger: "manual" | "test" = "manual") {
+  return request<{
+    trigger: string;
+    scannedTransactions: number;
+    processedCredits: number;
+    queuedCreditsProcessed: number;
+    matchedCooperatives: number;
+    pendingCredits: number;
+    lastRunAt: string;
+    source: string;
+  }>("/cron/nomba/run", {
+    method: "POST",
+    body: JSON.stringify({ trigger }),
+  });
+}
+
+export async function queueTestNombaCredit(payload: {
+  cooperativeId: string;
+  amount: number;
+  nombaTransactionRef?: string;
+}) {
+  return request<{
+    queued: boolean;
+    credit: { id: string; cooperativeId: string; amount: number; nombaTransactionRef: string; source: string; createdAt: string };
+    note: string;
+  }>("/cron/nomba/test-credit", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function getAlerts() {
   return request<{ alerts: AlertItem[] }>("/alerts");
 }

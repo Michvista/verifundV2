@@ -33,6 +33,15 @@ const state = {
   alerts: [] as FraudAlert[],
   reports: [] as WhistleblowerReport[],
   auditLog: [] as AuditEvent[],
+  pendingTreasuryCredits: [] as Array<{
+    id: string;
+    cooperativeId: string;
+    amount: number;
+    nombaTransactionRef: string;
+    source: string;
+    createdAt: string;
+  }>,
+  processedTreasuryCreditRefs: new Set<string>(),
 };
 
 const emptyDashboard: DashboardShape = {
@@ -115,6 +124,7 @@ export function getCooperativeOverview(cooperativeId: string) {
       cooperativeType: 'thrift' as const,
       nombaVirtualAccountRef: '',
       nombaAccountId: '',
+      nombaVirtualAccountNumber: '',
       healthScore: 0,
       healthScoreUpdatedAt: now(),
       isActive: false,
@@ -194,6 +204,88 @@ export function recordContribution(input: {
   });
 
   return { contribution, result };
+}
+
+export function recordTreasuryCredit(input: {
+  cooperativeId: string;
+  amount: number;
+  nombaTransactionRef: string;
+  source: string;
+}) {
+  const cooperative = getCooperative(input.cooperativeId);
+  if (!cooperative) {
+    throw new Error(`Cooperative ${input.cooperativeId} not found`);
+  }
+  if (state.processedTreasuryCreditRefs.has(input.nombaTransactionRef)) {
+    return { processed: false, cooperative, reference: input.nombaTransactionRef };
+  }
+
+  cooperative.balance += input.amount;
+  state.processedTreasuryCreditRefs.add(input.nombaTransactionRef);
+  state.auditLog.unshift({
+    id: randomUUID(),
+    cooperativeId: input.cooperativeId,
+    eventType: 'treasury_credit',
+    description: 'Treasury credit synced from Nomba polling.',
+    metadata: {
+      amount: input.amount,
+      source: input.source,
+      nombaTransactionRef: input.nombaTransactionRef,
+    },
+    createdAt: now(),
+  });
+
+  return { processed: true, cooperative, reference: input.nombaTransactionRef };
+}
+
+export function enqueueTreasuryCredit(input: {
+  cooperativeId: string;
+  amount: number;
+  nombaTransactionRef?: string;
+  source?: string;
+}) {
+  const cooperative = getCooperative(input.cooperativeId);
+  if (!cooperative) {
+    throw new Error(`Cooperative ${input.cooperativeId} not found`);
+  }
+
+  const credit = {
+    id: randomUUID(),
+    cooperativeId: input.cooperativeId,
+    amount: input.amount,
+    nombaTransactionRef: input.nombaTransactionRef || `txn_${Date.now()}`,
+    source: input.source || 'manual-test',
+    createdAt: now(),
+  };
+  state.pendingTreasuryCredits.unshift(credit);
+  return credit;
+}
+
+export function listPendingTreasuryCredits() {
+  return state.pendingTreasuryCredits;
+}
+
+export function processPendingTreasuryCredits() {
+  const processed: Array<{ id: string; cooperativeId: string; nombaTransactionRef: string }> = [];
+  state.pendingTreasuryCredits = state.pendingTreasuryCredits.filter((credit) => {
+    const result = recordTreasuryCredit({
+      cooperativeId: credit.cooperativeId,
+      amount: credit.amount,
+      nombaTransactionRef: credit.nombaTransactionRef,
+      source: credit.source,
+    });
+    if (result.processed) {
+      processed.push({
+        id: credit.id,
+        cooperativeId: credit.cooperativeId,
+        nombaTransactionRef: credit.nombaTransactionRef,
+      });
+      return false;
+    }
+    return true;
+  });
+
+  return processed;
 }
 
 export function createWithdrawalRequest(input: {
@@ -343,6 +435,7 @@ export async function createCooperative(input: { name: string; registrationNumbe
     cooperativeType: input.cooperativeType,
     nombaVirtualAccountRef: virtualAccount.accountRef,
     nombaAccountId: virtualAccount.accountId,
+    nombaVirtualAccountNumber: virtualAccount.accountNumber,
     healthScore: 0,
     healthScoreUpdatedAt: now(),
     isActive: true,
@@ -422,6 +515,10 @@ export function getMemberOrThrow(memberId: string) {
 
 export function getFirstCooperativeId() {
   return state.cooperatives[0]?.id ?? '';
+}
+
+export function listCooperatives() {
+  return state.cooperatives;
 }
 
 export function getStateSnapshot() {

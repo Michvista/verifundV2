@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import { authRoutes } from './routes/authRoutes';
+import { cronRoutes } from './routes/cronRoutes';
 import { cooperativeRoutes } from './routes/cooperativeRoutes';
 import { dashboardRoutes } from './routes/dashboardRoutes';
 import { contributionRoutes } from './routes/contributionRoutes';
@@ -51,6 +52,7 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRoutes);
+  app.use('/api/cron', cronRoutes);
   app.use('/api/cooperative', cooperativeRoutes);
   app.use('/api/cooperatives', cooperativeRoutes);
   app.use('/api/dashboard', dashboardRoutes);

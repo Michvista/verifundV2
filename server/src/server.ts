@@ -2,6 +2,7 @@ import 'dotenv/config';
 import http from 'http';
 import { createApp } from './app';
 import { attachRealtime } from './services/realtime';
+import { startNombaCron } from './services/nombaCron';
 import { usingDatabase } from './services/db';
 
 async function seedDatabase() {
@@ -21,6 +22,7 @@ attachRealtime(server);
 
 async function startServer() {
   await seedDatabase();
+  startNombaCron();
   server.listen(port, () => {
     console.log(`VeriFund API listening on http://localhost:${port}`);
   });
