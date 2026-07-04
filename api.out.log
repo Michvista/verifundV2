@@ -1,0 +1,17 @@
+
+> verifund-v2@0.0.1 api
+> tsx server/src/server.ts
+
+[seeder] Startup seeding is disabled. Booting with live database state only.
+VeriFund API listening on http://localhost:5050
+[0mGET /api/health [32m200[0m 16.036 ms - 107[0m
+[0mPOST /api/auth/login [32m200[0m 6978.024 ms - 323[0m
+[0mPOST /api/withdrawals/request [32m201[0m 4185.324 ms - 309[0m
+[0mPOST /api/auth/login [32m200[0m 449.906 ms - 323[0m
+[0mPOST /api/auth/login [32m200[0m 215.805 ms - 323[0m
+[0mPOST /api/withdrawals/cmr6fp3d800011lvsio1j5gv7/sign [32m200[0m 2273.138 ms - 91[0m
+[0mPOST /api/auth/login [32m200[0m 2821.057 ms - 325[0m
+[0mPOST /api/withdrawals/cmr6fp3d800011lvsio1j5gv7/sign [32m200[0m 3569.628 ms - 83[0m
+[0mPOST /api/withdrawals/cmr6fp3d800011lvsio1j5gv7/sign [32m200[0m 1891.716 ms - 83[0m
+[0mPOST /api/auth/login [32m200[0m 1314.483 ms - 323[0m
+[0mPOST /api/withdrawals/cmr6fp3d800011lvsio1j5gv7/release [32m200[0m 1449.612 ms - 160[0m
