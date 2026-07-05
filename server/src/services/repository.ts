@@ -1,6 +1,7 @@
 import { prisma, usingDatabase } from "./db";
 import {
   createCooperative,
+  assignMemberToCooperative,
   createMember,
   createWebhookAudit,
   getAlert,
@@ -21,11 +22,13 @@ import {
   signWithdrawal,
   verifyMemberByBvnHash,
   createWithdrawalRequest,
+  listMemberCooperatives,
 } from "./store";
 import { createVirtualAccount, createTransfer } from "./nombaService";
 import { scoreContribution, scoreWithdrawal } from "./riskScoring";
 import type { Cooperative } from "../types";
 import { broadcastFeedEvent } from "./realtime";
+import { formatContributionAmount, getDefaultContributionAmount } from "./contributionSettings";
 
 const emptyDashboard = {
   balance: 0,
@@ -63,10 +66,11 @@ export async function getDashboardData(
     cooperative ??
     (await prisma.cooperative.findFirst({ include: { contributions: true } }));
   if (!base) return getDashboard(cooperativeId);
+  const nextContribution = formatContributionAmount(base.contributionAmount || getDefaultContributionAmount());
 
   return {
     balance: base.balance || 0,
-    nextContribution: "Jan 15, ₦20,000",
+    nextContribution,
     tenure: "14 Months Active",
     trustScore: base.healthScore,
     loanStatus: "Eligible",
@@ -239,20 +243,60 @@ export async function loginMember(memberId: string) {
   return member;
 }
 
+export async function getMemberCooperativesData(memberId: string) {
+  if (!usingDatabase) return listMemberCooperatives(memberId);
+
+  const memberships = await prisma.cooperativeMember.findMany({
+    where: { memberId },
+    include: { cooperative: true },
+  });
+  const created = await prisma.cooperative.findMany({
+    where: { createdByMemberId: memberId },
+  });
+  const seen = new Set<string>();
+  return [
+    ...memberships.map((membership) => {
+      seen.add(membership.cooperativeId);
+      return {
+        id: membership.cooperative.id,
+        name: membership.cooperative.name,
+        registrationNumber: membership.cooperative.registrationNumber,
+        role: membership.role,
+        createdByMemberId: membership.cooperative.createdByMemberId,
+      };
+    }),
+    ...created
+      .filter((coop) => !seen.has(coop.id))
+      .map((coop) => ({
+        id: coop.id,
+        name: coop.name,
+        registrationNumber: coop.registrationNumber,
+        role: 'admin',
+        createdByMemberId: coop.createdByMemberId,
+      })),
+  ];
+}
+
 export async function createCooperativeData(input: {
   name: string;
   registrationNumber: string;
   stateName: string;
   cooperativeType: Cooperative["cooperativeType"];
   bvn?: string;
+  contributionAmount?: number;
+  createdByMemberId?: string;
 }) {
-  if (!usingDatabase) return await createCooperative(input);
+  if (!usingDatabase) return await createCooperative(input as any);
+
+  // accountRef must be 16–64 chars per Nomba's requirements.
+  const rawRef = `va_${input.registrationNumber}`;
+  const accountRef = rawRef.length >= 16 ? rawRef : `${rawRef}_${Date.now()}`.slice(0, 64);
 
   const virtualAccount = await createVirtualAccount({
     accountName: input.name,
-    accountRef: `va_${input.registrationNumber}`,
+    accountRef,
     bvn: input.bvn,
-    expectedAmount: 20000,
+    // No expectedAmount — accept any inbound transfer amount
   });
 
   const cooperative = await prisma.cooperative.create({
@@ -262,6 +306,8 @@ export async function createCooperativeData(input: {
       registrationNumber: input.registrationNumber,
       state: input.stateName,
       cooperativeType: input.cooperativeType,
+      createdByMemberId: input.createdByMemberId || null,
+      contributionAmount: Number(input.contributionAmount || getDefaultContributionAmount()),
       nombaVirtualAccountRef: virtualAccount.accountRef,
       nombaAccountId: virtualAccount.accountId,
       nombaVirtualAccountNumber: virtualAccount.accountNumber,
@@ -272,7 +318,58 @@ export async function createCooperativeData(input: {
     },
   });
 
+  if (input.createdByMemberId) {
+    await prisma.cooperativeMember.upsert({
+      where: {
+        cooperativeId_memberId: {
+          cooperativeId: cooperative.id,
+          memberId: input.createdByMemberId,
+        },
+      },
+      update: { role: 'admin' },
+      create: {
+        cooperativeId: cooperative.id,
+        memberId: input.createdByMemberId,
+        role: 'admin',
+      },
+    });
+  }
+
   return { cooperative, virtualAccount };
+}
+
+export async function assignMemberToCooperativeData(input: {
+  cooperativeId: string;
+  memberId: string;
+  role: 'member' | 'treasurer' | 'executive1' | 'executive2' | 'admin';
+}) {
+  if (!usingDatabase) return assignMemberToCooperative(input);
+
+  const membership = await prisma.cooperativeMember.upsert({
+    where: {
+      cooperativeId_memberId: {
+        cooperativeId: input.cooperativeId,
+        memberId: input.memberId,
+      },
+    },
+    update: { role: input.role },
+    create: {
+      cooperativeId: input.cooperativeId,
+      memberId: input.memberId,
+      role: input.role,
+    },
+  });
+
+  const memberCount = await prisma.cooperativeMember.count({
+    where: { cooperativeId: input.cooperativeId },
+  });
+
+  await prisma.cooperative.update({
+    where: { id: input.cooperativeId },
+    data: { memberCount },
+  });
+
+  return membership;
 }
 
 export async function createContributionData(input: {

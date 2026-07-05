@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCooperative } from '../services/api';
+import { addCooperativeMember, createCooperative } from '../services/api';
 
 type CooperativeType = 'thrift' | 'credit' | 'multipurpose';
 
@@ -10,10 +10,15 @@ export function AdminCooperativePage() {
   const [registrationNumber, setRegistrationNumber] = useState('');
   const [stateName, setStateName] = useState('');
   const [cooperativeType, setCooperativeType] = useState<CooperativeType>('thrift');
+  const [contributionAmount, setContributionAmount] = useState('10000');
   const [bvn, setBvn] = useState('');
   const [loading, setLoading] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
+  const [memberId, setMemberId] = useState('');
+  const [memberRole, setMemberRole] = useState<'member' | 'treasurer' | 'executive1' | 'executive2' | 'admin'>('member');
+  const [memberMsg, setMemberMsg] = useState<string | null>(null);
 
   async function handleCreate() {
     if (!name || !registrationNumber || !stateName || !bvn) return;
@@ -27,6 +32,7 @@ export function AdminCooperativePage() {
         stateName,
         cooperativeType,
         bvn: bvn.trim(),
+        contributionAmount: Number(contributionAmount || 0),
       });
       localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
       // Persist the virtual account so CooperativePage can display it without re-fetching
@@ -49,6 +55,23 @@ export function AdminCooperativePage() {
     }
   }
 
+  async function handleAssignMember() {
+    const cooperativeId = localStorage.getItem('verifund_cooperative_id') || '';
+    if (!cooperativeId || !memberId) return;
+    setAssigning(true);
+    setMemberMsg(null);
+    try {
+      await addCooperativeMember(cooperativeId, { memberId, role: memberRole });
+      setMemberMsg(`Assigned ${memberId} as ${memberRole} in ${cooperativeId}.`);
+      setMemberId('');
+      setMemberRole('member');
+    } catch (err) {
+      setMemberMsg((err as Error).message || 'Failed to add member');
+    } finally {
+      setAssigning(false);
+    }
+  }
+
   return (
     <div className="admin-grid">
       <section className="admin-panel page-reveal">
@@ -56,7 +79,7 @@ export function AdminCooperativePage() {
         <h2>Create a live cooperative record</h2>
         <p className="empty-state" style={{ marginTop: 10 }}>
           This page creates the treasury shell that Nomba will bind to a virtual account. No
-          seed cooperative is loaded here.
+          preset cooperative is loaded here.
         </p>
 
         <label className="input-block">
@@ -85,6 +108,16 @@ export function AdminCooperativePage() {
             <option value="credit">Credit</option>
             <option value="multipurpose">Multipurpose</option>
           </select>
+        </label>
+
+        <label className="input-block">
+          <span>Monthly Contribution Amount</span>
+          <input
+            value={contributionAmount}
+            onChange={(e) => setContributionAmount(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder="10000"
+            inputMode="numeric"
+          />
         </label>
 
         <label className="input-block">
@@ -135,6 +168,31 @@ export function AdminCooperativePage() {
         <button className="button button--light button--full" style={{ marginTop: 24 }} onClick={() => navigate('/dashboard')}>
           Review Dashboard
         </button>
+
+        <div style={{ marginTop: 28, width: '100%' }}>
+          <div className="eyebrow">Assign Members</div>
+          <p style={{ marginTop: 8, opacity: 0.85 }}>
+            Add existing members to the active cooperative so they can sign in and see the cooperatives they belong to.
+          </p>
+          <label className="input-block">
+            <span>Member ID</span>
+            <input value={memberId} onChange={(e) => setMemberId(e.target.value)} placeholder="mem_..." />
+          </label>
+          <label className="input-block">
+            <span>Role in Cooperative</span>
+            <select value={memberRole} onChange={(e) => setMemberRole(e.target.value as typeof memberRole)}>
+              <option value="member">Member</option>
+              <option value="treasurer">Treasurer</option>
+              <option value="executive1">Executive 1</option>
+              <option value="executive2">Executive 2</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          {memberMsg && <div className="notice" style={{ marginTop: 10 }}>{memberMsg}</div>}
+          <button className="button button--primary button--full" style={{ marginTop: 12 }} disabled={assigning || !memberId} onClick={handleAssignMember}>
+            {assigning ? 'Assigning...' : 'Add Member to Cooperative'}
+          </button>
+        </div>
       </section>
     </div>
   );

@@ -35,7 +35,7 @@ export function LoginPage() {
           <div className="eyebrow">Secure Access</div>
           <h2>Sign in with your member ID</h2>
           <p>
-            Use the ID returned during registration. No demo logins, no hidden shortcuts.
+            Use the ID returned during registration. No hidden shortcuts.
           </p>
 
           <label className="input-block">

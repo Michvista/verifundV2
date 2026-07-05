@@ -54,6 +54,15 @@ export type DashboardResponse = {
   healthScore: number;
 };
 
+export type NombaTransactionResponse = {
+  cooperativeId: string;
+  accountNumber: string | null;
+  accountRef: string | null;
+  provider: string;
+  count: number;
+  transactions: Array<Record<string, unknown>>;
+};
+
 export type TrustScoreResponse = {
   id: string;
   name: string;
@@ -106,6 +115,8 @@ export type CooperativeResponse = {
   registrationNumber: string;
   state: string;
   cooperativeType: string;
+  createdByMemberId?: string | null;
+  contributionAmount: number;
   nombaVirtualAccountRef: string;
   nombaAccountId: string;
   healthScore: number;
@@ -123,6 +134,16 @@ export type VirtualAccountResponse = {
   accountNumber?: string;
   bankName?: string;
   success?: boolean;
+};
+
+export type CooperativeAccessResponse = {
+  cooperatives: Array<{
+    id: string;
+    name: string;
+    registrationNumber: string;
+    role: string;
+    createdByMemberId?: string | null;
+  }>;
 };
 
 export async function login(memberId: string) {
@@ -178,11 +199,29 @@ export async function createCooperative(payload: {
   stateName: string;
   cooperativeType: string;
   bvn?: string;
+  contributionAmount?: number;
 }) {
   return request<{ cooperative: CooperativeResponse; virtualAccount: VirtualAccountResponse }>(
     "/cooperative",
     {
       method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function getMyCooperatives() {
+  return request<CooperativeAccessResponse>('/auth/me/cooperatives');
+}
+
+export async function addCooperativeMember(
+  cooperativeId: string,
+  payload: { memberId: string; role: string },
+) {
+  return request<{ id: string; cooperativeId: string; memberId: string; role: string }>(
+    `/cooperative/${encodeURIComponent(cooperativeId)}/members`,
+    {
+      method: 'POST',
       body: JSON.stringify(payload),
     },
   );
@@ -253,6 +292,12 @@ export async function getNombaCronStatus() {
     pollIntervalMs: number;
     nombaConfigured: boolean;
   }>("/cron/nomba/status");
+}
+
+export async function fetchNombaTransactions(cooperativeId: string) {
+  return request<NombaTransactionResponse>(
+    `/nomba/transactions/${encodeURIComponent(cooperativeId)}`,
+  );
 }
 
 export async function runNombaCron(trigger: "manual" | "test" = "manual") {

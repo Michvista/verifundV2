@@ -7,9 +7,11 @@
 ## Auth
 - `POST /api/auth/register`
 - `POST /api/auth/login`
+- `GET /api/auth/me/cooperatives`
 
 ## Cooperative
 - `POST /api/cooperative`
+- `POST /api/cooperative/:id/members`
 - `GET /api/cooperative/:id`
 - `GET /api/cooperative/:id/trust-score`
 - `GET /api/cooperatives/:id`
@@ -30,6 +32,8 @@
 - `GET /api/nomba/banks`
 - `POST /api/nomba/verify-account`
 - `POST /api/nomba/simulate-deposit`
+- `GET /api/nomba/transactions`
+- `GET /api/nomba/transactions/:cooperativeId`
 
 ## Risk
 - `GET /api/risk/:cooperativeId`

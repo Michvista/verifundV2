@@ -18,6 +18,7 @@ model Member {
   role         String   @default("member")
   isActive     Boolean  @default(true)
   cooperatives CooperativeMember[]
+  createdCooperatives Cooperative[] @relation("CooperativeCreatedBy")
   contributions Contribution[]
   withdrawalRequests WithdrawalRequest[] @relation("RequestedBy")
   signatures  WithdrawalSignature[]
@@ -29,9 +30,11 @@ model Cooperative {
   registrationNumber     String   @unique
   state                  String
   cooperativeType        String
+  createdByMemberId      String?
   nombaVirtualAccountRef String
   nombaAccountId         String
   nombaVirtualAccountNumber String?
+  contributionAmount     Float    @default(20000)
   healthScore            Int      @default(0)
   healthScoreUpdatedAt   DateTime @updatedAt
   isActive               Boolean  @default(true)
@@ -43,6 +46,7 @@ model Cooperative {
   fraudAlerts            FraudAlert[]
   auditEvents            AuditEvent[]
   reports                WhistleblowerReport[]
+  createdBy              Member? @relation("CooperativeCreatedBy", fields: [createdByMemberId], references: [id])
 }
 
 model CooperativeMember {

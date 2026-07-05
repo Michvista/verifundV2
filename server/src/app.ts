@@ -14,6 +14,8 @@ import { webhookRoutes } from './routes/webhookRoutes';
 import { withdrawalRoutes } from './routes/withdrawalRoutes';
 import { getFraudAlertData, getStateSnapshotData, getTrustScoreData, listFraudAlertsData } from './services/repository';
 import { isNombaConfigured } from './services/nombaService';
+import { usingDatabase } from './services/db';
+
 
 export function createApp() {
   const app = express();
@@ -37,6 +39,7 @@ export function createApp() {
       service: 'verifund-api',
       mode: 'monolith',
       nombaMode: isNombaConfigured() ? 'live' : 'mock',
+      databaseMode: usingDatabase ? 'postgres' : 'memory',
       time: new Date().toISOString(),
     });
   });
@@ -47,6 +50,7 @@ export function createApp() {
       service: 'verifund-api',
       mode: 'monolith',
       nombaMode: isNombaConfigured() ? 'live' : 'mock',
+      databaseMode: usingDatabase ? 'postgres' : 'memory',
       time: new Date().toISOString(),
     });
   });

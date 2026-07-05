@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
+import type { AuthenticatedRequest } from "../middleware/authMiddleware";
 import { signAuthToken } from "../services/auth";
-import { getMemberOrThrowData, registerMember } from "../services/repository";
+import { getMemberCooperativesData, getMemberOrThrowData, registerMember } from "../services/repository";
 
 export async function registerController(req: Request, res: Response) {
   const { firstName, lastName, phoneNumber, bvnHash, role } = req.body ?? {};
@@ -52,4 +53,11 @@ export async function loginController(req: Request, res: Response) {
       role: member.role,
     },
   });
+}
+
+export async function myCooperativesController(req: AuthenticatedRequest, res: Response) {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+  return res.json({ cooperatives: await getMemberCooperativesData(req.user.id) });
 }

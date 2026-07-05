@@ -8,10 +8,11 @@ import type {
   WhistleblowerReport,
   ApiDashboard,
 } from '../types';
+import { formatContributionAmount } from '../services/contributionSettings';
 
 export const seedDashboard: ApiDashboard = {
   balance: 482000.5,
-  nextContribution: 'Jan 15, ₦20,000',
+  nextContribution: formatContributionAmount(10000),
   tenure: '14 Months Active',
   trustScore: 92,
   loanStatus: 'Eligible',
@@ -23,10 +24,10 @@ export const seedDashboard: ApiDashboard = {
   ],
   contributionTrend: [18, 21, 19, 24, 26, 23, 29, 35, 40, 44, 49, 53],
   contributionHistory: [
-    { id: 'txn-9921-xf', date: '2023-12-15', amount: 20000, status: 'confirmed', reference: 'TXN-9921-XF' },
-    { id: 'txn-8742-lk', date: '2023-11-15', amount: 20000, status: 'confirmed', reference: 'TXN-8742-LK' },
-    { id: 'txn-4410-pp', date: '2023-10-15', amount: 20000, status: 'archived', reference: 'TXN-4410-PP' },
-    { id: 'txn-3291-zz', date: '2023-09-15', amount: 25000, status: 'confirmed', reference: 'TXN-3291-ZZ' },
+    { id: 'txn-9921-xf', date: '2023-12-15', amount: 10000, status: 'confirmed', reference: 'TXN-9921-XF' },
+    { id: 'txn-8742-lk', date: '2023-11-15', amount: 10000, status: 'confirmed', reference: 'TXN-8742-LK' },
+    { id: 'txn-4410-pp', date: '2023-10-15', amount: 10000, status: 'archived', reference: 'TXN-4410-PP' },
+    { id: 'txn-3291-zz', date: '2023-09-15', amount: 15000, status: 'confirmed', reference: 'TXN-3291-ZZ' },
   ],
 };
 
@@ -36,6 +37,7 @@ export const seedCooperative: Cooperative = {
   registrationNumber: '2024-X99',
   state: 'Lagos',
   cooperativeType: 'thrift',
+  contributionAmount: 10000,
   nombaVirtualAccountRef: 'VA-OF-2049',
   nombaAccountId: 'ACCT-4491',
   healthScore: 92,

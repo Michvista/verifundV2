@@ -4,6 +4,7 @@ import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { Sparkline } from '../components/Sparkline';
 import {
+  fetchNombaTransactions,
   getDashboard,
   getNombaCronStatus,
   runNombaCron,
@@ -47,6 +48,14 @@ export function DashboardPage() {
     nombaConfigured: boolean;
   } | null>(null);
   const [cronMsg, setCronMsg] = useState<string | null>(null);
+  const [transactionMsg, setTransactionMsg] = useState<string | null>(null);
+  const [liveTransactions, setLiveTransactions] = useState<Array<{
+    reference: string;
+    amount: number;
+    status: string;
+    accountNumber: string;
+    raw: Record<string, unknown>;
+  }>>([]);
 
   async function refresh() {
     if (!cooperativeId) return;
@@ -113,6 +122,37 @@ export function DashboardPage() {
       await refreshCronStatus();
     } catch (err) {
       setCronMsg((err as Error).message);
+    }
+  }
+
+  async function handleFetchTransactions() {
+    setTransactionMsg(null);
+    try {
+      const result = await fetchNombaTransactions(cooperativeId);
+      const normalized = result.transactions.map((entry) => ({
+        reference: String(
+          entry.reference ??
+          entry.transactionRef ??
+          entry.transactionReference ??
+          entry.id ??
+          entry.ref ??
+          'unknown',
+        ),
+        amount: Number(entry.amount ?? entry.transactionAmount ?? entry.value ?? 0),
+        status: String(entry.status ?? entry.transactionStatus ?? 'unknown'),
+        accountNumber: String(entry.accountNumber ?? entry.virtualAccountNumber ?? entry.destinationAccount ?? ''),
+        raw: entry,
+      }));
+      setLiveTransactions(normalized);
+      setTransactionMsg(
+        result.count
+          ? `Fetched ${result.count} live transaction(s) for ${result.accountNumber ?? cooperativeId}.`
+          : 'No live Nomba transactions were returned for this cooperative yet.',
+      );
+      await refresh();
+      await refreshCronStatus();
+    } catch (err) {
+      setTransactionMsg((err as Error).message);
     }
   }
 
@@ -254,10 +294,32 @@ export function DashboardPage() {
             </div>
 
             {cronMsg && <div className="notice" style={{ marginTop: 12 }}>{cronMsg}</div>}
+            {transactionMsg && <div className="callout" style={{ marginTop: 12 }}>{transactionMsg}</div>}
+            {liveTransactions.length > 0 && (
+              <div className="table" style={{ marginTop: 12 }}>
+                <div className="table__head">
+                  <span>Reference</span>
+                  <span>Amount</span>
+                  <span>Status</span>
+                  <span>Account</span>
+                </div>
+                {liveTransactions.map((row) => (
+                  <div className="table__row" key={row.reference}>
+                    <span>{row.reference}</span>
+                    <span>{formatNaira(row.amount)}</span>
+                    <span>{row.status}</span>
+                    <span>{row.accountNumber || 'n/a'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
               <button className="button button--primary button--full" onClick={() => void handleRunCron()}>
                 Check for New Deposits Now
+              </button>
+              <button className="button button--ghost button--full" onClick={() => void handleFetchTransactions()}>
+                Fetch Live Transactions Now
               </button>
             </div>
           </section>

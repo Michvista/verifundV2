@@ -55,7 +55,7 @@ export function OnboardPage() {
           <div className="eyebrow">Registration Complete</div>
           <h2>Welcome, {result.member.firstName}!</h2>
           <p>
-            Your profile is live and ready for real testing. No seed records are injected here.
+            Your profile is live and ready for real testing. No preset records are injected here.
           </p>
 
           <div className="success-block">

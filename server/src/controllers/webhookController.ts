@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { createWebhookAuditData, recalculateHealthScoreData } from '../services/repository';
+import { getDefaultContributionAmount } from '../services/contributionSettings';
 import { scoreContribution } from '../services/riskScoring';
 import { nombaSignatureHeader, verifyWebhookSignature } from '../services/nombaService';
 import { broadcastFeedEvent } from '../services/realtime';
@@ -38,7 +39,7 @@ export async function nombaWebhookController(req: Request, res: Response) {
   }
   const contributionRisk = scoreContribution({
     amount: Number(req.body?.amount || 0),
-    expectedAmount: Number(req.body?.expectedAmount || 20000),
+    expectedAmount: Number(req.body?.expectedAmount || getDefaultContributionAmount()),
     duplicateBvn: Boolean(req.body?.duplicateBvn),
     historyCount: Number(req.body?.historyCount || 0),
   });
