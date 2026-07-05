@@ -6,7 +6,6 @@ import { Sparkline } from '../components/Sparkline';
 import {
   getDashboard,
   getNombaCronStatus,
-  queueTestNombaCredit,
   runNombaCron,
   type DashboardResponse,
 } from '../services/api';
@@ -48,8 +47,6 @@ export function DashboardPage() {
     nombaConfigured: boolean;
   } | null>(null);
   const [cronMsg, setCronMsg] = useState<string | null>(null);
-  const [testAmount, setTestAmount] = useState('25000');
-  const [testRef, setTestRef] = useState('');
 
   async function refresh() {
     if (!cooperativeId) return;
@@ -119,21 +116,6 @@ export function DashboardPage() {
     }
   }
 
-  async function handleQueueTestCredit() {
-    if (!cooperativeId) return;
-    setCronMsg(null);
-    try {
-      const queued = await queueTestNombaCredit({
-        cooperativeId,
-        amount: Number(testAmount.replace(/[^0-9]/g, '') || 0),
-        nombaTransactionRef: testRef.trim() || undefined,
-      });
-      setCronMsg(`Queued test credit ${queued.credit.nombaTransactionRef}. Run cron sync to apply it.`);
-      await refreshCronStatus();
-    } catch (err) {
-      setCronMsg((err as Error).message);
-    }
-  }
 
   if (!cooperativeId) {
     return (
@@ -247,31 +229,35 @@ export function DashboardPage() {
 
         <aside className="side-stack">
           <section className="deposit-panel page-reveal">
-            <div className="eyebrow">Cron Sync</div>
-            <h2>Reconcile incoming money</h2>
+            <div className="eyebrow">Incoming Transfers</div>
+            <h2>Check for new deposits</h2>
             <p>
-              Real balance updates should come from the scheduled Nomba sync. Use the controls below to
-              test that path locally.
+              To fund this cooperative, transfer real NGN from any banking app
+              to the virtual account number shown on the <strong>Cooperative</strong> page.
+              The balance here updates automatically every 60 seconds, or click below to
+              check immediately.
             </p>
 
-            <label className="input-block">
-              <span>Test Amount (NGN)</span>
-              <input value={testAmount} onChange={(e) => setTestAmount(e.target.value)} inputMode="numeric" />
-            </label>
-
-            <label className="input-block">
-              <span>Test Reference</span>
-              <input value={testRef} onChange={(e) => setTestRef(e.target.value)} placeholder="Optional ref" />
-            </label>
+            <div className="detail-grid" style={{ marginTop: 12 }}>
+              <div>
+                <span>Cron Status</span>
+                <strong>{cronStatus?.running ? '🟢 Running' : '⚪ Idle'}</strong>
+              </div>
+              <div>
+                <span>Last Sync</span>
+                <strong>{cronStatus?.lastRunAt ? new Date(cronStatus.lastRunAt).toLocaleTimeString() : 'Not yet run'}</strong>
+              </div>
+              <div>
+                <span>Nomba Connected</span>
+                <strong>{cronStatus?.nombaConfigured ? '✅ Live' : '⚠️ Not configured'}</strong>
+              </div>
+            </div>
 
             {cronMsg && <div className="notice" style={{ marginTop: 12 }}>{cronMsg}</div>}
 
             <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
-              <button className="button button--primary button--full" onClick={() => void handleQueueTestCredit()}>
-                Queue Test Credit
-              </button>
-              <button className="button button--ghost button--full" onClick={() => void handleRunCron()}>
-                Run Cron Sync Now
+              <button className="button button--primary button--full" onClick={() => void handleRunCron()}>
+                Check for New Deposits Now
               </button>
             </div>
           </section>

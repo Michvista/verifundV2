@@ -16,7 +16,7 @@ export function AdminCooperativePage() {
   const [result, setResult] = useState<string | null>(null);
 
   async function handleCreate() {
-    if (!name || !registrationNumber || !stateName) return;
+    if (!name || !registrationNumber || !stateName || !bvn) return;
     setLoading(true);
     setError(null);
     setResult(null);
@@ -26,11 +26,20 @@ export function AdminCooperativePage() {
         registrationNumber,
         stateName,
         cooperativeType,
-        bvn: bvn.trim() || undefined,
+        bvn: bvn.trim(),
       });
       localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
+      // Persist the virtual account so CooperativePage can display it without re-fetching
+      if (response.virtualAccount.accountNumber) {
+        localStorage.setItem('verifund_virtual_account', JSON.stringify({
+          accountNumber: response.virtualAccount.accountNumber,
+          bankName: response.virtualAccount.bankName ?? 'Nomba',
+        }));
+      }
       setResult(
-        `Created ${response.cooperative.name}. Virtual account ${response.virtualAccount.accountNumber || 'pending'} is now bound to ${response.cooperative.id}.`,
+        `✅ Cooperative "${response.cooperative.name}" created.\n` +
+        `Virtual Account: ${response.virtualAccount.accountNumber ?? 'pending'} · ${response.virtualAccount.bankName ?? 'Nomba'}\n` +
+        `Transfer real NGN to this account from any banking app to fund the treasury.`
       );
       navigate('/cooperative');
     } catch (err) {
@@ -79,7 +88,7 @@ export function AdminCooperativePage() {
         </label>
 
         <label className="input-block">
-          <span>Optional BVN</span>
+          <span>BVN (Required)</span>
           <input
             value={bvn}
             onChange={(e) => setBvn(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}

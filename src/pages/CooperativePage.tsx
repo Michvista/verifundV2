@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Metric } from '../components/Metric';
 import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
@@ -9,9 +10,20 @@ function loadCooperativeId() {
   return localStorage.getItem('verifund_cooperative_id') || '';
 }
 
+function loadVirtualAccount() {
+  try {
+    const raw = localStorage.getItem('verifund_virtual_account');
+    return raw ? JSON.parse(raw) as { accountNumber: string; bankName: string } : null;
+  } catch {
+    return null;
+  }
+}
+
 export function CooperativePage() {
+  const navigate = useNavigate();
   const [cooperativeId] = useState(loadCooperativeId);
   const [cooperative, setCooperative] = useState<CooperativeResponse | null>(null);
+  const [virtualAccount] = useState(loadVirtualAccount);
 
   useEffect(() => {
     if (!cooperativeId) return;
@@ -47,13 +59,31 @@ export function CooperativePage() {
         </div>
         <div className="seal">VERIFUND CERTIFIED</div>
         <div className="stacked-actions">
-          <button className="button button--primary button--full">Export Full Report</button>
-          <button className="button button--ghost button--full">Share Link</button>
+          <button className="button button--ghost button--full" onClick={() => navigate('/dashboard')}>View Treasury</button>
         </div>
       </aside>
 
       <div className="cooperative-main">
-        <section className="trust-card page-reveal">
+        {/* ── Virtual Account – this is what members transfer to ── */}
+        {(virtualAccount?.accountNumber || cooperative?.nombaVirtualAccountRef) && (
+          <section className="trust-card page-reveal" style={{ background: 'var(--surface-raised)', border: '2px solid var(--accent)' }}>
+            <div className="trust-card__body" style={{ width: '100%' }}>
+              <div className="eyebrow" style={{ color: 'var(--accent)' }}>🏦 Nomba Virtual Account — Send Money Here</div>
+              <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 3, fontFamily: 'monospace', marginTop: 8 }}>
+                {virtualAccount?.accountNumber ?? cooperative?.nombaVirtualAccountRef}
+              </div>
+              <div style={{ marginTop: 4, opacity: 0.75 }}>
+                {virtualAccount?.bankName ?? 'Nomba'}
+              </div>
+              <p style={{ marginTop: 12, fontSize: 13 }}>
+                Transfer real NGN to this account number from any Nigerian banking app (GTB, Access, Zenith, etc.).
+                The cooperative balance updates automatically within 60 seconds via the Nomba transaction sync.
+                <strong> The treasurer cannot withdraw this money directly</strong> — every payout requires multi-signature approval.
+              </p>
+              <StatusPill tone="success">LIVE — Real Money</StatusPill>
+            </div>
+          </section>
+        )}
           <div className="trust-card__gauge">
             <div className="score-ring score-ring--large">
               <span>{cooperative?.healthScore ?? 0}</span>

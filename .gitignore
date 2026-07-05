@@ -1,2 +1,13 @@
 node_modules
 .env
+.env.local
+.env.*.local
+
+# Local dev & testing scratch files — never commit
+scratch/
+DEMO_GUIDE.md
+
+# Build artifacts
+dist/
+build/
+server/dist/

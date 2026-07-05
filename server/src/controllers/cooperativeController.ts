@@ -3,8 +3,8 @@ import { createCooperativeData, getCooperativeData, getTrustScoreData } from '..
 
 export async function createCooperativeController(req: Request, res: Response) {
   const { name, registrationNumber, stateName, cooperativeType, bvn } = req.body ?? {};
-  if (!name || !registrationNumber || !stateName || !cooperativeType) {
-    return res.status(400).json({ message: 'name, registrationNumber, stateName, and cooperativeType are required' });
+  if (!name || !registrationNumber || !stateName || !cooperativeType || !bvn) {
+    return res.status(400).json({ message: 'name, registrationNumber, stateName, cooperativeType, and bvn are required' });
   }
 
   try {

@@ -24,6 +24,7 @@ const BASE_URL = NOMBA_ENV === 'production' ? 'https://api.nomba.com' : 'https:/
 const CLIENT_ID = process.env.NOMBA_CLIENT_ID;
 const CLIENT_SECRET = process.env.NOMBA_CLIENT_SECRET;
 const ACCOUNT_ID = process.env.NOMBA_ACCOUNT_ID;
+const SUB_ACCOUNT_ID = process.env.NOMBA_SUB_ACCOUNT_ID;
 const WEBHOOK_SECRET = process.env.NOMBA_WEBHOOK_SECRET;
 const ALLOW_MOCK_FALLBACK = process.env.NOMBA_ALLOW_MOCK_FALLBACK !== 'false';
 
@@ -107,7 +108,10 @@ async function getAccessToken(): Promise<string> {
   return cachedToken.accessToken;
 }
 
-async function nombaRequest<T = any>(path: string, init: { method: string; body?: unknown }): Promise<T> {
+async function nombaRequest<T = any>(
+  path: string, 
+  init: { method: string; body?: unknown; headers?: Record<string, string> }
+): Promise<T> {
   const token = await getAccessToken();
   const response = await fetch(`${BASE_URL}${path}`, {
     method: init.method,
@@ -115,6 +119,7 @@ async function nombaRequest<T = any>(path: string, init: { method: string; body?
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
       accountId: ACCOUNT_ID as string,
+      ...(init.headers || {}),
     },
     body: init.body ? JSON.stringify(init.body) : undefined,
   });
@@ -163,7 +168,8 @@ export async function createVirtualAccount(args: {
   }
 
   try {
-    const data = await nombaRequest<any>('/v1/accounts/virtual', {
+    const path = SUB_ACCOUNT_ID ? `/v1/accounts/virtual/${SUB_ACCOUNT_ID}` : '/v1/accounts/virtual';
+    const data = await nombaRequest<any>(path, {
       method: 'POST',
       body: {
         accountRef: args.accountRef,
@@ -251,7 +257,8 @@ export async function createTransfer(args: {
   const merchantTxRef = `vf_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
 
   try {
-    const data = await nombaRequest<any>('/v2/transfers/bank', {
+    const path = SUB_ACCOUNT_ID ? `/v2/transfers/bank/${SUB_ACCOUNT_ID}` : '/v2/transfers/bank';
+    const data = await nombaRequest<any>(path, {
       method: 'POST',
       body: {
         amount: args.amount,
@@ -380,11 +387,25 @@ export async function fetchAccountTransactions(args: { accountNumber?: string; a
   }
 
   try {
+    let path = '/v1/transactions/accounts';
     const query = new URLSearchParams();
-    if (args.accountNumber) query.set('accountNumber', args.accountNumber);
-    if (args.accountRef) query.set('accountRef', args.accountRef);
+    const headers: Record<string, string> = {};
+
+    if (args.accountNumber) {
+      path = '/v1/transactions/virtual';
+      query.set('virtual_account', args.accountNumber);
+      if (SUB_ACCOUNT_ID) {
+        headers['accountId'] = SUB_ACCOUNT_ID;
+      }
+    } else if (args.accountRef) {
+      query.set('accountRef', args.accountRef);
+    }
+
     const suffix = query.toString() ? `?${query.toString()}` : '';
-    const data = await nombaRequest<any>(`/v1/transactions/accounts${suffix}`, { method: 'GET' });
+    const data = await nombaRequest<any>(`${path}${suffix}`, { 
+      method: 'GET',
+      headers,
+    });
     const transactions = Array.isArray(data)
       ? data
       : Array.isArray(data?.results)
