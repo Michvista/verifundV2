@@ -1,8 +1,17 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createCooperative } from '../services/api';
+import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
+import {
+  createCooperative,
+  type CooperativeResponse,
+  type CooperativeType,
+  type VirtualAccountResponse,
+} from '../services/api';
 
-type CooperativeType = 'thrift' | 'credit' | 'multipurpose';
+type CreateCooperativeResult = {
+  cooperative: CooperativeResponse;
+  virtualAccount: VirtualAccountResponse;
+};
 
 export function AdminCooperativePage() {
   const navigate = useNavigate();
@@ -13,35 +22,48 @@ export function AdminCooperativePage() {
   const [bvn, setBvn] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<CreateCooperativeResult | null>(null);
+
+  const trimmedName = name.trim();
+  const trimmedRegistrationNumber = registrationNumber.trim();
+  const trimmedStateName = stateName.trim();
+  const optionalBvn = bvn.trim();
+  const canSubmit = Boolean(
+    trimmedName &&
+      trimmedRegistrationNumber &&
+      trimmedStateName &&
+      (!optionalBvn || optionalBvn.length === 11),
+  );
 
   async function handleCreate() {
-    if (!name || !registrationNumber || !stateName || !bvn) return;
+    if (!canSubmit) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
       const response = await createCooperative({
-        name,
-        registrationNumber,
-        stateName,
+        name: trimmedName,
+        registrationNumber: trimmedRegistrationNumber,
+        stateName: trimmedStateName,
         cooperativeType,
-        bvn: bvn.trim(),
+        bvn: optionalBvn || undefined,
       });
       localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
-      // Persist the virtual account so CooperativePage can display it without re-fetching
       if (response.virtualAccount.accountNumber) {
-        localStorage.setItem('verifund_virtual_account', JSON.stringify({
-          accountNumber: response.virtualAccount.accountNumber,
-          bankName: response.virtualAccount.bankName ?? 'Nomba',
-        }));
+        localStorage.setItem(
+          'verifund_virtual_account',
+          JSON.stringify({
+            accountNumber: response.virtualAccount.accountNumber,
+            bankName: response.virtualAccount.bankName ?? 'Nomba',
+          }),
+        );
       }
-      setResult(
-        `✅ Cooperative "${response.cooperative.name}" created.\n` +
-        `Virtual Account: ${response.virtualAccount.accountNumber ?? 'pending'} · ${response.virtualAccount.bankName ?? 'Nomba'}\n` +
-        `Transfer real NGN to this account from any banking app to fund the treasury.`
-      );
-      navigate('/cooperative');
+      window.dispatchEvent(new Event(ACTIVE_COOPERATIVE_EVENT));
+      setResult(response);
+      setName('');
+      setRegistrationNumber('');
+      setStateName('');
+      setBvn('');
     } catch (err) {
       setError((err as Error).message || 'Failed to create cooperative');
     } finally {
@@ -88,7 +110,7 @@ export function AdminCooperativePage() {
         </label>
 
         <label className="input-block">
-          <span>BVN (Required)</span>
+          <span>BVN (Optional)</span>
           <input
             value={bvn}
             onChange={(e) => setBvn(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
@@ -105,11 +127,23 @@ export function AdminCooperativePage() {
 
         {result && (
           <div className="notice" style={{ marginTop: 12 }}>
-            {result}
+            Created <strong>{result.cooperative.name}</strong>. Active cooperative is now{' '}
+            <strong>{result.cooperative.id}</strong>.
           </div>
         )}
 
-        <button className="button button--primary button--full" style={{ marginTop: 16 }} disabled={loading} onClick={handleCreate}>
+        {optionalBvn && optionalBvn.length !== 11 && (
+          <div className="callout" style={{ marginTop: 12 }}>
+            Optional BVN must be 11 digits, or leave it blank.
+          </div>
+        )}
+
+        <button
+          className="button button--primary button--full"
+          style={{ marginTop: 16 }}
+          disabled={!canSubmit || loading}
+          onClick={handleCreate}
+        >
           {loading ? 'Creating cooperative...' : 'Create Cooperative'}
         </button>
       </section>
@@ -120,21 +154,26 @@ export function AdminCooperativePage() {
         <div className="admin-panel__balance">No cash leaves the ledger without Nomba.</div>
         <div className="admin-panel__stats">
           <div>
-            <span>Contribution Routing</span>
-            <strong>Dedicated virtual account</strong>
+            <span>Active Cooperative</span>
+            <strong>{result?.cooperative.id ?? 'Not created yet'}</strong>
           </div>
           <div>
-            <span>Withdrawal Gate</span>
-            <strong>Multi-signature approval</strong>
+            <span>Virtual Account</span>
+            <strong>{result?.virtualAccount.accountNumber ?? result?.cooperative.nombaVirtualAccountNumber ?? 'Pending'}</strong>
           </div>
           <div>
-            <span>Visibility</span>
-            <strong>Realtime webhook trail</strong>
+            <span>Nomba Provider</span>
+            <strong>{result?.virtualAccount.provider ?? result?.virtualAccount.bankName ?? 'Awaiting setup'}</strong>
           </div>
         </div>
-        <button className="button button--light button--full" style={{ marginTop: 24 }} onClick={() => navigate('/dashboard')}>
-          Review Dashboard
-        </button>
+        <div style={{ display: 'grid', gap: 10, marginTop: 24 }}>
+          <button className="button button--light button--full" onClick={() => navigate('/cooperative')} disabled={!result}>
+            View Cooperative
+          </button>
+          <button className="button button--ghost button--full" onClick={() => navigate('/dashboard')} disabled={!result}>
+            Review Dashboard
+          </button>
+        </div>
       </section>
     </div>
   );

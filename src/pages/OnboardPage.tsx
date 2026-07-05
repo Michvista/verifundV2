@@ -1,9 +1,24 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register, type RegisterResponse } from '../services/api';
+import type { UserRole } from '../services/session';
 
 type Step = 'form' | 'success';
-type TestRole = 'member' | 'treasurer' | 'executive1' | 'executive2' | 'admin' | 'regulator';
+type TestRole = UserRole;
+
+async function hashBvnForApi(bvn: string) {
+  if (!window.crypto?.subtle) {
+    throw new Error('Secure BVN hashing is unavailable in this browser.');
+  }
+
+  const bytes = new TextEncoder().encode(bvn);
+  const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+  const hash = Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `sha256:${hash}`;
+}
 
 export function OnboardPage() {
   const navigate = useNavigate();
@@ -18,20 +33,26 @@ export function OnboardPage() {
   const [role, setRole] = useState<TestRole>('member');
 
   const [result, setResult] = useState<RegisterResponse | null>(null);
+  const trimmedFirstName = firstName.trim();
+  const trimmedLastName = lastName.trim();
+  const trimmedPhone = phone.trim();
+  const canSubmit = Boolean(trimmedFirstName && trimmedLastName && trimmedPhone && bvn.length === 11);
 
   async function handleSubmit() {
-    if (!firstName || !lastName || !phone || bvn.length !== 11) return;
+    if (!canSubmit) return;
     setLoading(true);
     setError(null);
     try {
+      const bvnHash = await hashBvnForApi(bvn);
       const res = await register({
-        firstName,
-        lastName,
-        phoneNumber: phone,
-        bvnHash: bvn,
+        firstName: trimmedFirstName,
+        lastName: trimmedLastName,
+        phoneNumber: trimmedPhone,
+        bvnHash,
         role,
       });
       setResult(res);
+      setBvn('');
       setStep('success');
     } catch (err) {
       const message =
@@ -186,13 +207,14 @@ export function OnboardPage() {
         )}
 
         <div className="notice" style={{ marginTop: 18 }}>
-          BVN values are hashed on submit. The client only keeps the registration result.
+          BVN values are hashed in the browser before submission. The client only keeps the
+          registration result.
         </div>
 
         <button
           className="button button--primary button--full"
           style={{ marginTop: 16 }}
-          disabled={!firstName || !lastName || !phone || bvn.length !== 11 || loading}
+          disabled={!canSubmit || loading}
           onClick={handleSubmit}
         >
           {loading ? 'Creating account...' : 'Create Account & Verify BVN'}

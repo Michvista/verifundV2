@@ -1,21 +1,30 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { login } from '../services/api';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+
+type LoginLocationState = {
+  from?: {
+    pathname?: string;
+  };
+};
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const { signIn } = useAuth();
   const [memberId, setMemberId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const locationState = location.state as LoginLocationState | null;
+  const returnTo = locationState?.from?.pathname || '/dashboard';
 
   async function handleLogin(id: string) {
     setLoading(true);
     setError(null);
     try {
-      const result = await login(id);
-      localStorage.setItem('verifund_token', result.token);
-      localStorage.setItem('verifund_user', JSON.stringify(result.member));
-      navigate('/dashboard');
+      await signIn(id);
+      navigate(returnTo, { replace: true });
     } catch (err) {
       setError((err as Error).message || 'Login failed. Check your Member ID.');
     } finally {

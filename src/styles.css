@@ -1008,6 +1008,18 @@ h1, h2, h3, p {
   border-bottom: 0;
 }
 
+.insight-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.insight-list li {
+  padding-left: 4px;
+}
+
 button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

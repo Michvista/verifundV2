@@ -1,9 +1,12 @@
+import { clearStoredSession, getStoredToken } from "./session";
+import type { UserRole } from "./session";
+
 const baseUrl =
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
   "http://localhost:5050/api";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = localStorage.getItem("verifund_token");
+  const token = getStoredToken();
   const authHeaders: Record<string, string> = token
     ? { Authorization: `Bearer ${token}` }
     : {};
@@ -18,6 +21,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearStoredSession();
+    }
+
     const errorText = await response.text().catch(() => "");
     let errorMsg = `Request failed: ${response.status}`;
     try {
@@ -63,6 +70,32 @@ export type TrustScoreResponse = {
   history: number[];
 };
 
+export type AuditEvent = {
+  id: string;
+  cooperativeId: string;
+  eventType: string;
+  description: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+};
+
+export type AuditLogResponse = {
+  events: AuditEvent[];
+};
+
+export type RiskCategory = "low" | "medium" | "high" | string;
+
+export type RiskSignal = {
+  riskScore: number;
+  riskCategory: RiskCategory;
+  reasons: string[];
+};
+
+export type RiskDashboardResponse = RiskSignal & {
+  cooperativeId: string;
+  contributionSignal: RiskSignal;
+};
+
 export type AlertItem = {
   id: string;
   cooperativeId: string;
@@ -79,10 +112,22 @@ export type AlertItem = {
   type?: string;
 };
 
+type RawAlertItem = Omit<AlertItem, "evidence"> & {
+  evidence?: Record<string, unknown>;
+};
+
+function normalizeAlert(alert: RawAlertItem): AlertItem {
+  return {
+    ...alert,
+    evidence: alert.evidence ?? alert.evidenceJson ?? {},
+  };
+}
+
 export type QueueItem = {
   id: string;
   cooperativeId: string;
   requestedBy: string;
+  requestedById?: string;
   amount: number;
   destinationAccount: string;
   destinationBankCode: string;
@@ -100,16 +145,31 @@ export type QueueItem = {
   sigs?: string;
 };
 
+type RawQueueItem = Omit<QueueItem, "requestedBy"> & {
+  requestedBy?: string;
+  requestedById?: string;
+};
+
+function normalizeQueueItem(item: RawQueueItem): QueueItem {
+  return {
+    ...item,
+    requestedBy: item.requestedBy ?? item.requestedById ?? "unknown",
+  };
+}
+
+export type CooperativeType = "thrift" | "credit" | "multipurpose";
+
 export type CooperativeResponse = {
   id: string;
   name: string;
   registrationNumber: string;
   state: string;
-  cooperativeType: string;
+  cooperativeType: CooperativeType | string;
   nombaVirtualAccountRef: string;
   nombaAccountId: string;
+  nombaVirtualAccountNumber?: string;
   healthScore: number;
-  healthScoreUpdatedAt: string;
+  healthScoreUpdatedAt?: string;
   isActive: boolean;
   memberCount: number;
   balance: number;
@@ -120,8 +180,11 @@ export type CooperativeResponse = {
 export type VirtualAccountResponse = {
   accountId?: string;
   accountRef?: string;
+  accountName?: string;
   accountNumber?: string;
   bankName?: string;
+  currency?: string;
+  provider?: string;
   success?: boolean;
 };
 
@@ -140,7 +203,7 @@ export type RegisterResponse = {
     id: string;
     firstName: string;
     lastName: string;
-    role: string;
+    role: UserRole | string;
     bvnVerified: boolean;
     cooperativeId?: string;
   };
@@ -148,7 +211,7 @@ export type RegisterResponse = {
     verified: boolean;
     duplicateCount: number;
     bvnNameMatch: boolean;
-    details: any;
+    details: Record<string, unknown>;
   };
   nomba: {
     accountCreated: boolean;
@@ -159,26 +222,30 @@ export type RegisterResponse = {
   };
 };
 
-export async function register(payload: {
+export type RegisterPayload = {
   firstName: string;
   lastName: string;
   phoneNumber: string;
   bvnHash: string;
-  role?: string;
-}) {
+  role?: UserRole;
+};
+
+export async function register(payload: RegisterPayload) {
   return request<RegisterResponse>("/auth/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function createCooperative(payload: {
+export type CreateCooperativePayload = {
   name: string;
   registrationNumber: string;
   stateName: string;
-  cooperativeType: string;
+  cooperativeType: CooperativeType;
   bvn?: string;
-}) {
+};
+
+export async function createCooperative(payload: CreateCooperativePayload) {
   return request<{ cooperative: CooperativeResponse; virtualAccount: VirtualAccountResponse }>(
     "/cooperative",
     {
@@ -192,6 +259,10 @@ export async function getCooperative(cooperativeId: string) {
   return request<CooperativeResponse>(`/cooperative/${encodeURIComponent(cooperativeId)}`);
 }
 
+export async function lookupCooperative(cooperativeId: string) {
+  return getCooperative(cooperativeId);
+}
+
 export async function getDashboard(cooperativeId?: string) {
   const suffix = cooperativeId
     ? `?cooperativeId=${encodeURIComponent(cooperativeId)}`
@@ -203,6 +274,14 @@ export async function getTrustScore(cooperativeId: string) {
   return request<TrustScoreResponse>(
     `/cooperative/${encodeURIComponent(cooperativeId)}/trust-score`,
   );
+}
+
+export async function getAuditLog(cooperativeId: string) {
+  return request<AuditLogResponse>(`/audit/log/${encodeURIComponent(cooperativeId)}`);
+}
+
+export async function getRiskDashboard(cooperativeId: string) {
+  return request<RiskDashboardResponse>(`/risk/${encodeURIComponent(cooperativeId)}`);
 }
 
 export async function getBanks() {
@@ -227,18 +306,30 @@ export async function verifyAccount(accountNumber: string, bankCode: string) {
 
 export async function simulateDeposit(payload: {
   cooperativeId: string;
-  memberId?: string;
   amount: number;
-  expectedAmount?: number;
-  duplicateBvn?: boolean;
-  historyCount?: number;
+  nombaTransactionRef?: string;
 }) {
   return request<{
     success: boolean;
     message: string;
-    payload: any;
-    signature: string;
-    response: any;
+    credit: {
+      id: string;
+      cooperativeId: string;
+      amount: number;
+      nombaTransactionRef: string;
+      source: string;
+      createdAt: string;
+    };
+    pollResult: {
+      trigger: string;
+      scannedTransactions: number;
+      processedCredits: number;
+      queuedCreditsProcessed: number;
+      matchedCooperatives: number;
+      pendingCredits: number;
+      lastRunAt: string;
+      source: string;
+    };
   }>("/nomba/simulate-deposit", {
     method: "POST",
     body: JSON.stringify(payload),
@@ -287,37 +378,90 @@ export async function queueTestNombaCredit(payload: {
 }
 
 export async function getAlerts() {
-  return request<{ alerts: AlertItem[] }>("/alerts");
+  const response = await request<{ alerts: RawAlertItem[] }>("/alerts");
+  return { alerts: response.alerts.map(normalizeAlert) };
 }
 
 export async function getAlert(id: string) {
-  return request<AlertItem>(`/alerts/${id}`);
+  const alert = await request<RawAlertItem>(`/alerts/${id}`);
+  return normalizeAlert(alert);
 }
 
 export async function getQueue() {
-  return request<{ queue: QueueItem[] }>("/withdrawals");
+  const response = await request<{ queue: RawQueueItem[] }>("/withdrawals");
+  return { queue: response.queue.map(normalizeQueueItem) };
 }
 
 export async function getQueueItem(id: string) {
-  return request<QueueItem>(`/withdrawals/${id}`);
+  const item = await request<RawQueueItem>(`/withdrawals/${id}`);
+  return normalizeQueueItem(item);
 }
 
-export async function requestWithdrawal(payload: Record<string, unknown>) {
-  return request<{
-    withdrawalId: string;
-    riskScore: number;
-    riskCategory: string;
-    reasons: string[];
-    status: string;
-  }>("/withdrawals/request", {
+export type RequestWithdrawalPayload = {
+  cooperativeId: string;
+  requestedBy: string;
+  amount: number;
+  destinationAccount: string;
+  destinationBankCode: string;
+  purpose: string;
+};
+
+export type RequestWithdrawalResponse = {
+  withdrawalId: string;
+  riskScore: number;
+  riskCategory: string;
+  reasons: string[];
+  signals?: Record<string, unknown>;
+  status: string;
+  explanations?: string[];
+  destinationAccountName?: string | null;
+};
+
+export type WithdrawalRiskPreviewPayload = {
+  amount: number;
+  average30d: number;
+  signatureCount: number;
+  destinationVerified: boolean;
+  bvnDuplicate?: boolean;
+  purpose?: string;
+};
+
+export type WithdrawalRiskPreviewResponse = {
+  riskScore: number;
+  riskCategory: "low" | "medium" | "high" | string;
+  reasons: string[];
+  signals: {
+    ratio: number;
+    zScore: number;
+    signatureCount: number;
+    destinationVerified: boolean;
+    bvnDuplicate: boolean;
+  };
+  explanation: string[];
+};
+
+export async function previewWithdrawalRisk(payload: WithdrawalRiskPreviewPayload) {
+  return request<WithdrawalRiskPreviewResponse>("/withdrawals/request/preview", {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
+export async function requestWithdrawal(payload: RequestWithdrawalPayload) {
+  return request<RequestWithdrawalResponse>("/withdrawals/request", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type SignWithdrawalPayload = {
+  memberId: string;
+  role: UserRole | string;
+};
+
 export async function signWithdrawal(
   id: string,
-  payload: Record<string, unknown>,
+  payload: SignWithdrawalPayload,
 ) {
   return request<{
     withdrawalId: string;
@@ -329,11 +473,13 @@ export async function signWithdrawal(
   });
 }
 
+export type ReleaseWithdrawalPayload = Record<string, never>;
+
 export async function releaseWithdrawal(
   id: string,
-  payload: Record<string, unknown>,
+  payload: ReleaseWithdrawalPayload = {},
 ) {
-  return request<{ transferRef: string; status: string; provider: string }>(
+  return request<{ withdrawalId: string; transferRef: string; status: string; provider: string }>(
     `/withdrawals/${id}/release`,
     {
       method: "POST",
@@ -342,22 +488,68 @@ export async function releaseWithdrawal(
   );
 }
 
-export async function submitContribution(payload: Record<string, unknown>) {
-  return request(`/contribution`, {
+export type ContributionPayload = {
+  memberId: string;
+  cooperativeId: string;
+  amount: number;
+  expectedAmount?: number;
+  duplicateBvn?: boolean;
+};
+
+export type ContributionResponse = {
+  contribution: {
+    id: string;
+    memberId: string;
+    cooperativeId: string;
+    amount: number;
+    nombaTransactionRef: string;
+    status: string;
+    riskScore: number;
+    contributedAt: string;
+  };
+  result: {
+    riskScore: number;
+    riskCategory: "low" | "medium" | "high" | string;
+    reasons: string[];
+  };
+};
+
+export async function submitContribution(payload: ContributionPayload) {
+  return request<ContributionResponse>(`/contribution`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
 }
 
-export async function submitWhistleblowerReport(payload: {
+export type WhistleblowerReportPayload = {
   report: string;
   supportingDetails?: string;
-}) {
-  return request<{ success: boolean; whistleblowerReportId: string }>(
+};
+
+export type WhistleblowerReportItem = {
+  id: string;
+  submittedAt: string;
+  report: string;
+  supportingDetails?: string;
+  status: string;
+};
+
+export type WhistleblowerResponse = {
+  report: WhistleblowerReportItem;
+  alert: AlertItem;
+};
+
+export async function submitWhistleblowerReport(payload: WhistleblowerReportPayload) {
+  const response = await request<{ report: WhistleblowerReportItem; alert: RawAlertItem }>(
     "/fraud/whistleblower/report",
     {
       method: "POST",
       body: JSON.stringify(payload),
     },
   );
+
+  return {
+    report: response.report,
+    alert: normalizeAlert(response.alert),
+  };
 }

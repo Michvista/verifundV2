@@ -10,6 +10,8 @@ import { WithdrawalPage } from './pages/WithdrawalPage';
 import { FraudAlertsPage } from './pages/FraudAlertsPage';
 import { WhistleblowerPage } from './pages/WhistleblowerPage';
 import { PublicLookupPage } from './pages/PublicLookupPage';
+import { RiskDashboardPage } from './pages/RiskDashboardPage';
+import { RequireAuth } from './auth/RequireAuth';
 
 export default function App() {
   return (
@@ -21,9 +23,31 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="cooperative" element={<CooperativePage />} />
         <Route path="cooperative/trust-score" element={<TrustScorePage />} />
-        <Route path="admin/cooperative" element={<AdminCooperativePage />} />
-        <Route path="admin/withdrawal" element={<WithdrawalPage />} />
-        <Route path="fraud/alerts" element={<FraudAlertsPage />} />
+        <Route path="risk/dashboard" element={<RiskDashboardPage />} />
+        <Route
+          path="admin/cooperative"
+          element={
+            <RequireAuth>
+              <AdminCooperativePage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="admin/withdrawal"
+          element={
+            <RequireAuth>
+              <WithdrawalPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="fraud/alerts"
+          element={
+            <RequireAuth>
+              <FraudAlertsPage />
+            </RequireAuth>
+          }
+        />
         <Route path="whistleblower" element={<WhistleblowerPage />} />
         <Route path="public/lookup" element={<PublicLookupPage />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

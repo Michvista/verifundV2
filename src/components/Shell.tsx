@@ -1,43 +1,42 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
 import { navItems } from '../data';
 import { IconBell, IconSearch, IconUser } from './icons';
-
-type UserProfile = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-};
-
-function loadUser(): UserProfile | null {
-  try {
-    const raw = localStorage.getItem('verifund_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
 
 function loadCooperativeId() {
   return localStorage.getItem('verifund_cooperative_id') || '';
 }
 
+export const ACTIVE_COOPERATIVE_EVENT = 'verifund-active-cooperative-change';
+
 export function Shell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserProfile | null>(loadUser);
+  const { user, signOut } = useAuth();
   const [cooperativeId, setCooperativeId] = useState(loadCooperativeId);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     setCooperativeId(loadCooperativeId());
-    setUser(loadUser());
   }, [location.pathname]);
 
+  useEffect(() => {
+    function syncActiveCooperative() {
+      setCooperativeId(loadCooperativeId());
+    }
+
+    window.addEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+    window.addEventListener('storage', syncActiveCooperative);
+
+    return () => {
+      window.removeEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+      window.removeEventListener('storage', syncActiveCooperative);
+    };
+  }, []);
+
   function handleLogout() {
-    localStorage.removeItem('verifund_token');
-    localStorage.removeItem('verifund_user');
+    signOut();
     navigate('/login');
   }
 
@@ -145,7 +144,7 @@ export function Shell() {
         </header>
 
         <main className="content">
-          <Outlet context={{ cooperativeId, setCooperativeId, setUser }} />
+          <Outlet context={{ cooperativeId, setCooperativeId }} />
         </main>
       </div>
     </div>
@@ -157,6 +156,7 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith('/admin/cooperative')) return 'Cooperative Setup';
   if (pathname.startsWith('/cooperative') && pathname.endsWith('/trust-score')) return 'Public Trust Registry';
   if (pathname.startsWith('/cooperative')) return 'Cooperative Overview';
+  if (pathname.startsWith('/risk/dashboard')) return 'AI Risk Dashboard';
   if (pathname.startsWith('/fraud/alerts')) return 'Fraud Alerts';
   if (pathname.startsWith('/whistleblower')) return 'Anonymous Report';
   if (pathname.startsWith('/public/lookup')) return 'Registration Lookup';

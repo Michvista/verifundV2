@@ -1,10 +1,16 @@
 # VeriFund Frontend Integration Guide
 
-This guide documents the current VeriFund backend contract for frontend integration. It is based on the Express/TypeScript backend in `server/src` and the existing frontend API client in `src/services/api.ts`.
+This document describes the current backend contract for building or updating a frontend against VeriFund. It is based on the Express/TypeScript backend in `server/src`, the Prisma schema in `prisma/schema.prisma`, and the existing client wrapper in `src/services/api.ts`.
 
-## Runtime URLs
+## 1. Runtime Setup
 
-Local development:
+Local backend:
+
+```env
+PORT=5050
+```
+
+Local frontend:
 
 ```env
 VITE_API_BASE_URL=http://localhost:5050/api
@@ -14,47 +20,41 @@ VITE_WS_URL=ws://localhost:5050/ws
 Production example:
 
 ```env
-VITE_API_BASE_URL=https://your-render-service.onrender.com/api
-VITE_WS_URL=wss://your-render-service.onrender.com/ws
+VITE_API_BASE_URL=https://your-api-host.example.com/api
+VITE_WS_URL=wss://your-api-host.example.com/ws
 ```
 
-The backend also exposes health checks outside and inside the API prefix:
+The root frontend app runs on Vite port `5174`:
 
-- `GET /health`
-- `GET /api/health`
-
-Both return:
-
-```json
-{
-  "ok": true,
-  "service": "verifund-api",
-  "mode": "monolith",
-  "nombaMode": "mock",
-  "time": "2026-07-03T00:00:00.000Z"
-}
+```bash
+npm run dev
 ```
 
-`nombaMode` is `live` only when real Nomba credentials are configured.
+Backend-only:
 
-## Request Conventions
+```bash
+npm run api
+```
 
-All API requests and responses use JSON.
+## 2. Transport Rules
+
+All normal API endpoints accept and return JSON. Send `Content-Type: application/json` for requests with a body.
+
+The API base URL should include `/api`. The existing frontend default is:
 
 ```ts
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5050/api";
+const baseUrl =
+  (import.meta.env.VITE_API_BASE_URL as string | undefined) ||
+  "http://localhost:5050/api";
 ```
 
-Use `Content-Type: application/json` on requests with a body.
-
-Protected endpoints require:
+Protected routes require a bearer token:
 
 ```http
 Authorization: Bearer <jwt>
 ```
 
-The current frontend stores the token in:
+The existing frontend stores auth state in local storage:
 
 ```ts
 localStorage.setItem("verifund_token", token);
@@ -67,23 +67,35 @@ Error responses generally use:
 { "message": "Human readable error" }
 ```
 
-## Demo Seed Users
+Protected endpoint failures:
 
-The seeded login IDs are useful for local and hackathon demos:
+- `401` means the token is missing or invalid.
+- `403` means the token is valid but the member role is not allowed.
 
-| Member ID | Role |
-| --- | --- |
-| `mem-01` | `treasurer` |
-| `mem-02` | `executive1` |
-| `mem-03` | `executive2` |
-| `admin-01` | `admin` |
-| `reg-01` | `regulator` |
+## 3. Health Checks
 
-Role names are lowercase in backend responses and JWT claims.
+```http
+GET /health
+GET /api/health
+```
 
-## Authentication
+Response:
 
-### Register Member
+```json
+{
+  "ok": true,
+  "service": "verifund-api",
+  "mode": "monolith",
+  "nombaMode": "mock",
+  "time": "2026-07-05T12:00:00.000Z"
+}
+```
+
+`nombaMode` is `live` only when real Nomba credentials are configured. Otherwise the backend stays usable through deterministic mock/fallback flows.
+
+## 4. Auth
+
+### Register
 
 ```http
 POST /api/auth/register
@@ -96,22 +108,25 @@ Body:
   "firstName": "Ada",
   "lastName": "Okafor",
   "phoneNumber": "+2348000000000",
-  "bvnHash": "hash_bvn_unique"
+  "bvnHash": "hash_bvn_unique",
+  "role": "member"
 }
 ```
+
+Required fields are `firstName`, `lastName`, `phoneNumber`, and `bvnHash`. `role` is optional and defaults to `member`.
 
 Success `201`:
 
 ```json
 {
   "member": {
-    "id": "mem_...",
+    "id": "mem_123",
     "firstName": "Ada",
     "lastName": "Okafor",
     "phoneNumber": "+2348000000000",
     "bvnHash": "hash_bvn_unique",
     "bvnVerified": true,
-    "bvnVerifiedAt": "2026-07-03T00:00:00.000Z",
+    "bvnVerifiedAt": "2026-07-05T12:00:00.000Z",
     "role": "member",
     "isActive": true
   },
@@ -124,16 +139,8 @@ Success `201`:
   "nomba": {
     "accountCreated": true,
     "virtualAccountCreated": true,
-    "accountRef": "va_mem_..."
+    "accountRef": "va_mem_123"
   }
-}
-```
-
-Validation error `400`:
-
-```json
-{
-  "message": "firstName, lastName, phoneNumber, and bvnHash are required"
 }
 ```
 
@@ -163,15 +170,23 @@ Success:
 }
 ```
 
-## Dashboard
+Demo/fallback roles commonly used by the seeded data are:
 
-### Get Dashboard Summary
+| Member ID | Role |
+| --- | --- |
+| `mem-01` | `treasurer` |
+| `mem-02` | `executive1` |
+| `mem-03` | `executive2` |
+| `admin-01` | `admin` |
+| `reg-01` | `regulator` |
+
+## 5. Dashboard
 
 ```http
 GET /api/dashboard?cooperativeId=okafor-farmers-thrift
 ```
 
-`cooperativeId` is optional. If omitted, the backend defaults to `okafor-farmers-thrift`.
+`cooperativeId` is optional. If omitted, the backend uses its default cooperative.
 
 Success:
 
@@ -205,9 +220,9 @@ Success:
 }
 ```
 
-## Cooperatives And Trust Score
+## 6. Cooperatives And Trust Score
 
-The cooperative routes are mounted at both `/api/cooperative` and `/api/cooperatives`.
+The backend mounts cooperative routes at both `/api/cooperative` and `/api/cooperatives`. Prefer the singular form because the current frontend uses it.
 
 ### Create Cooperative
 
@@ -230,11 +245,7 @@ Body:
 }
 ```
 
-`cooperativeType` must be one of:
-
-- `thrift`
-- `credit`
-- `multipurpose`
+Required fields are `name`, `registrationNumber`, `stateName`, and `cooperativeType`.
 
 Success `201`:
 
@@ -248,6 +259,7 @@ Success `201`:
     "cooperativeType": "thrift",
     "nombaVirtualAccountRef": "va_LMW-2026-001",
     "nombaAccountId": "acct_5191",
+    "nombaVirtualAccountNumber": "901005191",
     "healthScore": 92,
     "isActive": true,
     "memberCount": 0,
@@ -261,16 +273,16 @@ Success `201`:
     "accountNumber": "901005191",
     "bankName": "Nomba (mock)",
     "currency": "NGN",
-    "bvnVerified": true,
-    "expectedAmount": 20000,
     "provider": "nomba-mock"
   }
 }
 ```
 
+If Nomba virtual account creation fails, the endpoint returns `502` with a `message`.
+
 ### Get Cooperative
 
-Public endpoint.
+Public endpoint:
 
 ```http
 GET /api/cooperative/:id
@@ -287,8 +299,9 @@ Success:
   "cooperativeType": "thrift",
   "nombaVirtualAccountRef": "VA-OF-2049",
   "nombaAccountId": "ACCT-4491",
+  "nombaVirtualAccountNumber": "901004491",
   "healthScore": 92,
-  "healthScoreUpdatedAt": "2026-06-30T00:00:00.000Z",
+  "healthScoreUpdatedAt": "2026-07-05T12:00:00.000Z",
   "isActive": true,
   "memberCount": 1248,
   "balance": 48200050,
@@ -301,7 +314,7 @@ Success:
 
 ### Get Trust Score
 
-Public endpoint.
+Public endpoint:
 
 ```http
 GET /api/cooperative/:id/trust-score
@@ -329,9 +342,54 @@ Success:
 }
 ```
 
-## Nomba Utilities
+## 7. Contributions
 
-These endpoints run in mock mode unless live Nomba credentials are configured.
+Requires one of `member`, `treasurer`, or `admin`.
+
+```http
+POST /api/contribution
+Authorization: Bearer <jwt>
+```
+
+Body:
+
+```json
+{
+  "memberId": "mem-01",
+  "cooperativeId": "okafor-farmers-thrift",
+  "amount": 20000,
+  "expectedAmount": 20000,
+  "duplicateBvn": false
+}
+```
+
+Required fields are `memberId`, `cooperativeId`, and `amount`.
+
+Success `201`:
+
+```json
+{
+  "contribution": {
+    "id": "contrib_123",
+    "memberId": "mem-01",
+    "cooperativeId": "okafor-farmers-thrift",
+    "amount": 20000,
+    "nombaTransactionRef": "manual_123",
+    "status": "confirmed",
+    "riskScore": 0.08,
+    "contributedAt": "2026-07-05T12:00:00.000Z"
+  },
+  "result": {
+    "riskScore": 0.08,
+    "riskCategory": "low",
+    "reasons": []
+  }
+}
+```
+
+## 8. Nomba Utilities
+
+These endpoints run in mock mode unless Nomba credentials are configured.
 
 ### List Banks
 
@@ -350,6 +408,8 @@ Success:
   "mode": "mock"
 }
 ```
+
+`mode` can be `mock`, `live`, or `fallback`.
 
 ### Verify Bank Account
 
@@ -377,9 +437,9 @@ Success:
 }
 ```
 
-### Simulate Deposit Webhook
+### Simulate Deposit
 
-Useful for local demos and realtime feed testing.
+This is a frontend/demo helper. It now queues a test credit and immediately runs the same cron sync path that posts Nomba credits into the treasury balance.
 
 ```http
 POST /api/nomba/simulate-deposit
@@ -390,47 +450,127 @@ Body:
 ```json
 {
   "cooperativeId": "okafor-farmers-thrift",
-  "memberId": "mem-01",
   "amount": 20000,
-  "expectedAmount": 20000,
-  "duplicateBvn": false,
-  "historyCount": 4
+  "nombaTransactionRef": "demo-credit-001"
 }
 ```
+
+Required fields are `cooperativeId` and `amount`.
 
 Success:
 
 ```json
 {
   "success": true,
-  "message": "Webhook simulated and processed successfully",
-  "payload": {
+  "message": "Test credit queued and processed by the cron sync path",
+  "credit": {
+    "id": "credit_123",
     "cooperativeId": "okafor-farmers-thrift",
-    "memberId": "mem-01",
     "amount": 20000,
-    "expectedAmount": 20000,
-    "duplicateBvn": false,
-    "historyCount": 4,
-    "eventType": "virtual_account_deposit",
-    "timestamp": "2026-07-03T00:00:00.000Z"
+    "nombaTransactionRef": "demo-credit-001",
+    "source": "test",
+    "createdAt": "2026-07-05T12:00:00.000Z"
   },
-  "signature": "mock-signature-abc",
-  "signatureHeader": "signature",
-  "response": {
-    "ok": true,
-    "received": true,
-    "riskScore": 0.08,
-    "riskCategory": "low",
-    "reasons": [],
-    "healthScore": 92,
-    "eventType": "virtual_account_deposit"
+  "pollResult": {
+    "trigger": "test",
+    "scannedTransactions": 0,
+    "processedCredits": 1,
+    "queuedCreditsProcessed": 1,
+    "matchedCooperatives": 1,
+    "pendingCredits": 0,
+    "lastRunAt": "2026-07-05T12:00:00.000Z",
+    "source": "local-queue"
   }
 }
 ```
 
-## Withdrawals
+## 9. Nomba Cron Controls
 
-Withdrawal routes are mounted at both `/api/withdrawal` and `/api/withdrawals`.
+These routes are currently public in the backend and are intended for demos, admin dashboards, or manual testing.
+
+### Status
+
+```http
+GET /api/cron/nomba/status
+```
+
+Success:
+
+```json
+{
+  "running": true,
+  "lastRunAt": "2026-07-05T12:00:00.000Z",
+  "pendingCredits": 0,
+  "pollIntervalMs": 60000,
+  "nombaConfigured": false
+}
+```
+
+### Queue Test Credit
+
+```http
+POST /api/cron/nomba/test-credit
+```
+
+Body:
+
+```json
+{
+  "cooperativeId": "okafor-farmers-thrift",
+  "amount": 20000,
+  "nombaTransactionRef": "demo-credit-002"
+}
+```
+
+Success `201`:
+
+```json
+{
+  "queued": true,
+  "credit": {
+    "id": "credit_123",
+    "cooperativeId": "okafor-farmers-thrift",
+    "amount": 20000,
+    "nombaTransactionRef": "demo-credit-002",
+    "source": "test",
+    "createdAt": "2026-07-05T12:00:00.000Z"
+  },
+  "note": "Run the cron sync route to post this credit into the treasury balance."
+}
+```
+
+### Run Credit Sync
+
+```http
+POST /api/cron/nomba/run
+```
+
+Body:
+
+```json
+{ "trigger": "manual" }
+```
+
+`trigger` can be `manual` or `test`.
+
+Success:
+
+```json
+{
+  "trigger": "manual",
+  "scannedTransactions": 0,
+  "processedCredits": 1,
+  "queuedCreditsProcessed": 1,
+  "matchedCooperatives": 1,
+  "pendingCredits": 0,
+  "lastRunAt": "2026-07-05T12:00:00.000Z",
+  "source": "local-queue"
+}
+```
+
+## 10. Withdrawals
+
+Withdrawal routes are mounted at both `/api/withdrawal` and `/api/withdrawals`. Prefer `/api/withdrawals`.
 
 ### List Withdrawals
 
@@ -456,32 +596,33 @@ Success:
       "purpose": "Equipment procurement for Q4 distribution run.",
       "riskScore": 0.41,
       "status": "partially_signed",
-      "createdAt": "2023-10-24T00:00:00.000Z",
+      "nombaTransferRef": null,
+      "createdAt": "2026-07-05T12:00:00.000Z",
       "average30d": 510000,
       "signatureCount": 1,
       "explanations": [
-        "Amount is 3.8x the rolling 30-day average"
+        "Amount is 4.8x the rolling 30-day average"
       ]
     }
   ]
 }
 ```
 
-With Prisma enabled, the field returned by the database relation is `requestedById`; fallback data uses `requestedBy`. Frontend mapping should support both:
+Database-backed rows may expose `requestedById`; fallback seed data exposes `requestedBy`. Normalize at the API boundary:
 
 ```ts
-const requester = item.requestedBy ?? item.requestedById;
+const requestedBy = item.requestedBy ?? item.requestedById;
 ```
 
 ### Get Withdrawal
 
-Public in the current backend.
+Public in the current backend:
 
 ```http
 GET /api/withdrawals/:id
 ```
 
-Success response is one withdrawal object. Missing items return:
+Missing items return:
 
 ```json
 { "message": "Withdrawal item not found" }
@@ -489,7 +630,7 @@ Success response is one withdrawal object. Missing items return:
 
 ### Preview Withdrawal Risk
 
-Public in the current backend.
+Public in the current backend:
 
 ```http
 POST /api/withdrawals/request/preview
@@ -512,10 +653,12 @@ Success:
 
 ```json
 {
-  "riskScore": 0.5,
-  "riskCategory": "medium",
+  "riskScore": 0.9,
+  "riskCategory": "high",
   "reasons": [
-    "Amount is 4.8x the rolling 30-day average"
+    "Amount is 4.8x the rolling 30-day average",
+    "Withdrawal is missing the minimum approval threshold",
+    "Withdrawal variance is significantly above the recent baseline"
   ],
   "signals": {
     "ratio": 4.803921568627451,
@@ -525,7 +668,9 @@ Success:
     "bvnDuplicate": false
   },
   "explanation": [
-    "Amount is 4.8x the rolling 30-day average"
+    "Amount is 4.8x the rolling 30-day average",
+    "Withdrawal is missing the minimum approval threshold",
+    "Withdrawal variance is significantly above the recent baseline"
   ]
 }
 ```
@@ -556,16 +701,16 @@ Success `201`:
 
 ```json
 {
-  "withdrawalId": "wf_...",
-  "riskScore": 0.5,
-  "riskCategory": "medium",
+  "withdrawalId": "wf_123",
+  "riskScore": 0.9,
+  "riskCategory": "high",
   "reasons": [
     "Amount is 4.8x the rolling 30-day average"
   ],
   "signals": {
     "ratio": 4.803921568627451,
     "zScore": 2716.915,
-    "signatureCount": 1,
+    "signatureCount": 0,
     "destinationVerified": true,
     "bvnDuplicate": false
   },
@@ -605,7 +750,7 @@ Success:
 }
 ```
 
-Status becomes `approved` when `signatureCount >= 3`.
+Status becomes `approved` when enough signatures are collected by the repository logic.
 
 ### Release Withdrawal
 
@@ -616,7 +761,7 @@ POST /api/withdrawals/:id/release
 Authorization: Bearer <jwt>
 ```
 
-Body is currently ignored by the backend, so send `{}`.
+Body can be `{}`. The backend currently ignores request body fields.
 
 Success:
 
@@ -629,13 +774,15 @@ Success:
 }
 ```
 
-## Fraud, Audit, And Whistleblower
+Nomba transfer failures return `502` with a `message`.
 
-Fraud routes are mounted at both `/api/fraud/...` and `/api/...` for the same route definitions. The existing frontend uses the short aliases (`/alerts`, `/alerts/:id`).
+## 11. Fraud, Audit, And Whistleblower
+
+Fraud routes are mounted at both `/api/fraud/...` and `/api/...` for the same router. There are also app-level public aliases for fraud alerts.
 
 ### List Alerts
 
-Requires `admin` or `regulator`.
+Requires `admin` or `regulator` for `/api/alerts` and `/api/fraud/alerts`.
 
 ```http
 GET /api/alerts
@@ -667,7 +814,7 @@ Success:
         "requested": 2450000
       },
       "status": "open",
-      "createdAt": "2023-10-24T09:12:11.000Z",
+      "createdAt": "2026-07-05T12:00:00.000Z",
       "title": "Large withdrawal outside baseline",
       "reason": "Requested amount is 4.7x the 30-day average.",
       "severity": "High"
@@ -676,7 +823,7 @@ Success:
 }
 ```
 
-The current frontend `AlertItem` type expects an `evidence` field, but the backend returns `evidenceJson`. Map it at the API boundary:
+Normalize alert evidence at the API boundary because frontend code may expect `evidence`:
 
 ```ts
 const evidence = alert.evidenceJson ?? alert.evidence ?? {};
@@ -703,7 +850,7 @@ Missing items return:
 { "message": "Alert not found" }
 ```
 
-### Get Audit Log
+### Audit Log
 
 Requires `admin` or `regulator`.
 
@@ -731,7 +878,7 @@ Success:
       "metadata": {
         "accountRef": "VA-OF-2049"
       },
-      "createdAt": "2023-10-20T08:00:00.000Z"
+      "createdAt": "2026-07-05T12:00:00.000Z"
     }
   ]
 }
@@ -739,7 +886,7 @@ Success:
 
 ### Submit Whistleblower Report
 
-Public endpoint.
+Public endpoint:
 
 ```http
 POST /api/whistleblower/report
@@ -765,14 +912,14 @@ Success `201`:
 ```json
 {
   "report": {
-    "id": "...",
-    "submittedAt": "2026-07-03T00:00:00.000Z",
+    "id": "report_123",
+    "submittedAt": "2026-07-05T12:00:00.000Z",
     "report": "I noticed repeated withdrawals to the same destination account.",
     "supportingDetails": "The pattern happened three times in June.",
     "status": "open"
   },
   "alert": {
-    "id": "...",
+    "id": "alert_123",
     "cooperativeId": "okafor-farmers-thrift",
     "alertType": "whistleblower",
     "riskScore": 0.5,
@@ -786,7 +933,7 @@ Success `201`:
 }
 ```
 
-## Risk Preview
+## 12. Risk Preview
 
 ```http
 GET /api/risk/:cooperativeId
@@ -797,8 +944,8 @@ Success:
 ```json
 {
   "cooperativeId": "okafor-farmers-thrift",
-  "riskScore": 0.41,
-  "riskCategory": "low",
+  "riskScore": 0.9,
+  "riskCategory": "high",
   "reasons": [
     "Amount is 4.8x the rolling 30-day average"
   ],
@@ -810,9 +957,13 @@ Success:
 }
 ```
 
-This endpoint uses hardcoded sample values for its withdrawal preview. Use `/api/withdrawals/request/preview` when the frontend needs a preview for user-entered form values.
+This endpoint uses hardcoded sample values. For form-driven withdrawal risk previews, use:
 
-## Webhooks
+```http
+POST /api/withdrawals/request/preview
+```
+
+## 13. Webhooks
 
 ### Nomba Webhook Receiver
 
@@ -820,14 +971,16 @@ This endpoint uses hardcoded sample values for its withdrawal preview. Use `/api
 POST /api/webhooks/nomba
 ```
 
-This endpoint is intended for Nomba or the simulator, not regular frontend calls.
+This endpoint is meant for Nomba callbacks and simulator/test tooling, not normal frontend UI actions.
 
-Signature rules:
+Signature behavior:
 
-- Header defaults to `signature`.
-- Override with `NOMBA_SIGNATURE_HEADER`.
+- Default header name is `signature`.
+- `NOMBA_SIGNATURE_HEADER` can override the header name.
 - Legacy `x-nomba-signature` is also accepted.
 - In mock mode, signatures containing `mock` are accepted.
+
+Body must include `cooperativeId`.
 
 Success:
 
@@ -843,7 +996,7 @@ Success:
 }
 ```
 
-Invalid signature:
+Invalid signature returns `401`:
 
 ```json
 {
@@ -852,12 +1005,14 @@ Invalid signature:
 }
 ```
 
-## Realtime WebSocket
+## 14. Realtime WebSocket
 
-Connect to:
+Connect to the backend root, not the API base URL:
 
 ```ts
-const socket = new WebSocket(import.meta.env.VITE_WS_URL || "ws://localhost:5050/ws");
+const socket = new WebSocket(
+  import.meta.env.VITE_WS_URL || "ws://localhost:5050/ws",
+);
 ```
 
 Initial message:
@@ -866,7 +1021,7 @@ Initial message:
 {
   "type": "connected",
   "message": "VeriFund live feed connected",
-  "timestamp": "2026-07-03T00:00:00.000Z"
+  "timestamp": "2026-07-05T12:00:00.000Z"
 }
 ```
 
@@ -881,7 +1036,7 @@ type FeedEvent = {
 };
 ```
 
-Known event types:
+Known event types emitted by backend services include:
 
 - `connected`
 - `nomba-api-call`
@@ -892,7 +1047,7 @@ Known event types:
 - `withdrawal-release`
 - `whistleblower`
 
-Example client:
+Client helper:
 
 ```ts
 export function connectVerifundFeed(onEvent: (event: FeedEvent) => void) {
@@ -903,7 +1058,7 @@ export function connectVerifundFeed(onEvent: (event: FeedEvent) => void) {
     try {
       onEvent(JSON.parse(message.data));
     } catch {
-      // Ignore malformed messages from non-VeriFund sources.
+      // Ignore malformed messages.
     }
   };
 
@@ -911,14 +1066,14 @@ export function connectVerifundFeed(onEvent: (event: FeedEvent) => void) {
 }
 ```
 
-## Suggested Frontend API Wrapper
+## 15. Frontend API Wrapper Pattern
 
-The current `src/services/api.ts` already follows this pattern. Keep backend-only naming differences contained here so pages can consume stable UI types.
+Keep auth headers, error parsing, and backend shape normalization inside the service layer.
 
 ```ts
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = localStorage.getItem("verifund_token");
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
@@ -936,7 +1091,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 ```
 
-Normalize backend response differences at the service layer:
+Recommended normalizers:
 
 ```ts
 function normalizeAlert(alert: any) {
@@ -954,7 +1109,7 @@ function normalizeWithdrawal(item: any) {
 }
 ```
 
-## Auth And Role Matrix
+## 16. Auth And Role Matrix
 
 | Endpoint | Auth | Roles |
 | --- | --- | --- |
@@ -964,9 +1119,13 @@ function normalizeWithdrawal(item: any) {
 | `POST /api/cooperative` | Yes | `admin` |
 | `GET /api/cooperative/:id` | No | Public |
 | `GET /api/cooperative/:id/trust-score` | No | Public |
+| `POST /api/contribution` | Yes | `member`, `treasurer`, `admin` |
 | `GET /api/nomba/banks` | No | Public |
 | `POST /api/nomba/verify-account` | No | Public |
 | `POST /api/nomba/simulate-deposit` | No | Public/demo |
+| `GET /api/cron/nomba/status` | No | Public/demo |
+| `POST /api/cron/nomba/test-credit` | No | Public/demo |
+| `POST /api/cron/nomba/run` | No | Public/demo |
 | `GET /api/withdrawals` | Yes | `admin`, `treasurer`, `executive1`, `executive2` |
 | `GET /api/withdrawals/:id` | No | Public in current backend |
 | `POST /api/withdrawals/request/preview` | No | Public |
@@ -982,12 +1141,11 @@ function normalizeWithdrawal(item: any) {
 | `GET /api/risk/:cooperativeId` | No | Public/sample |
 | `POST /api/webhooks/nomba` | Signature | Nomba/simulator |
 
-## Current Integration Notes
+## 17. Integration Notes
 
-- `src/services/api.ts` defaults to `http://localhost:5050/api`, but `npm run dev` starts Vite on port `5174`, not `5173`.
-- Several frontend service calls use local fallback data when the backend is unavailable. This is helpful for demos, but production screens should surface backend errors for protected workflows such as withdrawals and alerts.
-- Protected endpoints will return `401` when there is no bearer token and `403` when the logged-in user role is not allowed.
-- The backend has duplicate route mounts for convenience: `/api/cooperative` and `/api/cooperatives`, `/api/withdrawal` and `/api/withdrawals`, plus fraud aliases under `/api` and `/api/fraud`.
-- For alerts, backend persistence uses `evidenceJson`; the current frontend type mentions `evidence`. Normalize once in the API client.
-- For withdrawals, database-backed rows use Prisma's `requestedById`; fallback seed data uses `requestedBy`. Normalize once in the API client.
-- `GET /api/state` returns the full in-memory state object in fallback mode, but count totals in database mode. Use it only for diagnostics, not user-facing UI.
+- The backend is an Express monolith under `server/src` with route, controller, service, repository, and middleware layers.
+- Prisma/Postgres is used when `DATABASE_URL` is configured. Without a database, the app falls back to demo store behavior.
+- Nomba calls are live only when credentials are configured; otherwise the backend returns mock values and uses a local credit queue for deposit demos.
+- `GET /api/state` is diagnostic. In fallback mode it returns the full in-memory state object; in database mode it returns count totals. Do not use it for user-facing UI.
+- Several route families have aliases for compatibility. Prefer one canonical path in new frontend code: `/api/cooperative`, `/api/withdrawals`, `/api/fraud/...`, and `/api/nomba/...`.
+- Keep protected workflow failures visible to users. Local fallback data is useful for demos, but withdrawal, fraud, and admin actions should surface backend errors.
