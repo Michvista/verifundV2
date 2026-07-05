@@ -27,12 +27,12 @@ export function AdminCooperativePage() {
   const trimmedName = name.trim();
   const trimmedRegistrationNumber = registrationNumber.trim();
   const trimmedStateName = stateName.trim();
-  const optionalBvn = bvn.trim();
+  const trimmedBvn = bvn.trim();
   const canSubmit = Boolean(
     trimmedName &&
       trimmedRegistrationNumber &&
       trimmedStateName &&
-      (!optionalBvn || optionalBvn.length === 11),
+      trimmedBvn.length === 11,
   );
 
   async function handleCreate() {
@@ -46,7 +46,7 @@ export function AdminCooperativePage() {
         registrationNumber: trimmedRegistrationNumber,
         stateName: trimmedStateName,
         cooperativeType,
-        bvn: optionalBvn || undefined,
+        bvn: trimmedBvn,
       });
       localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
       if (response.virtualAccount.accountNumber) {
@@ -110,7 +110,7 @@ export function AdminCooperativePage() {
         </label>
 
         <label className="input-block">
-          <span>BVN (Optional)</span>
+          <span>BVN</span>
           <input
             value={bvn}
             onChange={(e) => setBvn(e.target.value.replace(/[^0-9]/g, '').slice(0, 11))}
@@ -132,9 +132,9 @@ export function AdminCooperativePage() {
           </div>
         )}
 
-        {optionalBvn && optionalBvn.length !== 11 && (
+        {bvn && trimmedBvn.length !== 11 && (
           <div className="callout" style={{ marginTop: 12 }}>
-            Optional BVN must be 11 digits, or leave it blank.
+            BVN is required and must be 11 digits.
           </div>
         )}
 

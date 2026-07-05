@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { navItems } from '../data';
+import type { UserRole } from '../services/session';
 import { IconBell, IconSearch, IconUser } from './icons';
 
 function loadCooperativeId() {
@@ -40,6 +41,23 @@ export function Shell() {
     navigate('/login');
   }
 
+  function canAccessNavItem(item: (typeof navItems)[number]) {
+    if (item.allowedRoles?.length) {
+      return Boolean(user && item.allowedRoles.includes(user.role as UserRole));
+    }
+
+    if (item.requiresAuth) {
+      return Boolean(user);
+    }
+
+    return true;
+  }
+
+  const visibleNavItems = navItems.filter(canAccessNavItem);
+  const primaryNavItems = visibleNavItems.slice(0, 6);
+  const secondaryNavItems = visibleNavItems.slice(6);
+  const canManageCooperative = user?.role === 'admin';
+
   const shouldUseDarkFrame =
     location.pathname.startsWith('/cooperative') &&
     !location.pathname.endsWith('/trust-score');
@@ -70,14 +88,18 @@ export function Shell() {
           <strong>{cooperativeId || 'Not set'}</strong>
           <button
             className="button button--ghost button--full"
-            onClick={() => navigate('/admin/cooperative')}
+            onClick={() => navigate(canManageCooperative ? '/admin/cooperative' : '/cooperative')}
           >
-            {cooperativeId ? 'Change cooperative' : 'Create cooperative'}
+            {canManageCooperative
+              ? cooperativeId
+                ? 'Change cooperative'
+                : 'Create cooperative'
+              : 'View cooperative'}
           </button>
         </div>
 
         <nav className="sidebar__nav">
-          {navItems.slice(0, 6).map((item) => (
+          {primaryNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -89,18 +111,20 @@ export function Shell() {
           ))}
         </nav>
 
-        <div className="sidebar__nav sidebar__nav--lower">
-          {navItems.slice(6).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => `sidebar__link ${isActive ? 'is-active' : ''}`}
-              onClick={() => setMobileNavOpen(false)}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
+        {secondaryNavItems.length > 0 && (
+          <div className="sidebar__nav sidebar__nav--lower">
+            {secondaryNavItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) => `sidebar__link ${isActive ? 'is-active' : ''}`}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                {item.label}
+              </NavLink>
+            ))}
+          </div>
+        )}
 
         <button className="button button--ghost sidebar__cta" onClick={handleLogout}>
           Sign Out
@@ -157,6 +181,8 @@ function pageTitle(pathname: string) {
   if (pathname.startsWith('/cooperative') && pathname.endsWith('/trust-score')) return 'Public Trust Registry';
   if (pathname.startsWith('/cooperative')) return 'Cooperative Overview';
   if (pathname.startsWith('/risk/dashboard')) return 'AI Risk Dashboard';
+  if (pathname.startsWith('/transactions')) return 'Transactions';
+  if (pathname.startsWith('/system/status')) return 'System Status';
   if (pathname.startsWith('/fraud/alerts')) return 'Fraud Alerts';
   if (pathname.startsWith('/whistleblower')) return 'Anonymous Report';
   if (pathname.startsWith('/public/lookup')) return 'Registration Lookup';

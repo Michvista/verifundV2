@@ -3,23 +3,14 @@ import { Metric } from '../components/Metric';
 import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { Sparkline } from '../components/Sparkline';
+import { NombaOperationsPanel } from '../components/NombaOperationsPanel';
 import { useAuth } from '../auth/AuthContext';
 import {
   getDashboard,
-  getNombaCronStatus,
-  queueTestNombaCredit,
-  runNombaCron,
   submitContribution,
   type DashboardResponse,
+  type NombaCronStatus,
 } from '../services/api';
-
-type CronStatus = {
-  running: boolean;
-  lastRunAt: string;
-  pendingCredits: number;
-  pollIntervalMs: number;
-  nombaConfigured: boolean;
-};
 
 type WsStatus = 'idle' | 'connected' | 'disconnected';
 
@@ -38,12 +29,8 @@ export function DashboardPage() {
   const [liveFeed, setLiveFeed] = useState<DashboardResponse['activityFeed']>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
-  const [cronStatus, setCronStatus] = useState<CronStatus | null>(null);
-  const [cronLoading, setCronLoading] = useState(false);
-  const [cronMsg, setCronMsg] = useState<string | null>(null);
+  const [cronStatus, setCronStatus] = useState<NombaCronStatus | null>(null);
   const [wsStatus, setWsStatus] = useState<WsStatus>('idle');
-  const [testAmount, setTestAmount] = useState('25000');
-  const [testRef, setTestRef] = useState('');
   const [contributionAmount, setContributionAmount] = useState('20000');
   const [expectedContribution, setExpectedContribution] = useState('20000');
   const [contributionLoading, setContributionLoading] = useState(false);
@@ -59,14 +46,6 @@ export function DashboardPage() {
     setDashboardLoading(false);
   }
 
-  async function refreshCronStatus() {
-    try {
-      setCronStatus(await getNombaCronStatus());
-    } catch {
-      setCronStatus(null);
-    }
-  }
-
   useEffect(() => {
     if (!cooperativeId) return;
     setDashboardLoading(true);
@@ -78,7 +57,6 @@ export function DashboardPage() {
       setDashboardError(message);
       setDashboardLoading(false);
     });
-    void refreshCronStatus();
   }, [cooperativeId]);
 
   useEffect(() => {
@@ -118,48 +96,6 @@ export function DashboardPage() {
 
     return () => socket.close();
   }, [cooperativeId]);
-
-  async function handleRunCron() {
-    setCronMsg(null);
-    setCronLoading(true);
-    try {
-      const result = await runNombaCron('manual');
-      setCronMsg(
-        `Cron sync ran: ${result.processedCredits} credit(s) processed from ${result.source}.`,
-      );
-      await refresh();
-      await refreshCronStatus();
-    } catch (err) {
-      setCronMsg((err as Error).message);
-    } finally {
-      setCronLoading(false);
-    }
-  }
-
-  async function handleQueueTestCredit() {
-    if (!cooperativeId) return;
-    const amount = Number(testAmount.replace(/[^0-9]/g, '') || 0);
-    if (!amount) {
-      setCronMsg('Enter a test amount before queueing a credit.');
-      return;
-    }
-
-    setCronMsg(null);
-    setCronLoading(true);
-    try {
-      const queued = await queueTestNombaCredit({
-        cooperativeId,
-        amount,
-        nombaTransactionRef: testRef.trim() || undefined,
-      });
-      setCronMsg(`Queued test credit ${queued.credit.nombaTransactionRef}. Run cron sync to apply it.`);
-      await refreshCronStatus();
-    } catch (err) {
-      setCronMsg((err as Error).message);
-    } finally {
-      setCronLoading(false);
-    }
-  }
 
   async function handleSubmitContribution() {
     if (!cooperativeId || !user) {
@@ -363,60 +299,11 @@ export function DashboardPage() {
             </button>
           </section>
 
-          <section className="deposit-panel page-reveal">
-            <div className="eyebrow">Cron Sync</div>
-            <h2>Reconcile incoming money</h2>
-            <p>
-              To fund this cooperative, transfer real NGN from any banking app
-              to the virtual account number shown on the <strong>Cooperative</strong> page.
-              The balance here updates automatically every 60 seconds, or click below to
-              check immediately.
-            </p>
-
-            <div className="detail-grid" style={{ marginTop: 12 }}>
-              <div>
-                <span>Cron Status</span>
-                <strong>{cronStatus?.running ? 'Running' : 'Idle'}</strong>
-              </div>
-              <div>
-                <span>Last Sync</span>
-                <strong>{cronStatus?.lastRunAt ? new Date(cronStatus.lastRunAt).toLocaleTimeString() : 'Not yet run'}</strong>
-              </div>
-              <div>
-                <span>Nomba Connected</span>
-                <strong>{cronStatus?.nombaConfigured ? 'Live' : 'Not configured'}</strong>
-              </div>
-            </div>
-
-            {cronMsg && <div className="notice" style={{ marginTop: 12 }}>{cronMsg}</div>}
-
-            <label className="input-block">
-              <span>Test Credit Amount (NGN)</span>
-              <input value={testAmount} onChange={(e) => setTestAmount(e.target.value)} inputMode="numeric" />
-            </label>
-
-            <label className="input-block">
-              <span>Optional Reference</span>
-              <input value={testRef} onChange={(e) => setTestRef(e.target.value)} placeholder="Leave blank to auto-generate" />
-            </label>
-
-            <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
-              <button
-                className="button button--primary button--full"
-                disabled={cronLoading}
-                onClick={() => void handleQueueTestCredit()}
-              >
-                {cronLoading ? 'Working...' : 'Queue Test Credit'}
-              </button>
-              <button
-                className="button button--ghost button--full"
-                disabled={cronLoading}
-                onClick={() => void handleRunCron()}
-              >
-                {cronLoading ? 'Working...' : 'Run Cron Sync Now'}
-              </button>
-            </div>
-          </section>
+          <NombaOperationsPanel
+            cooperativeId={cooperativeId}
+            onStatusChange={setCronStatus}
+            onSynced={refresh}
+          />
 
           <section className="loan-card page-reveal">
             <div className="eyebrow">Current Loan Status</div>

@@ -37,6 +37,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+export type HealthResponse = {
+  ok: boolean;
+  service: string;
+  mode: string;
+  nombaMode: "live" | "mock" | string;
+  time: string;
+};
+
 export type DashboardResponse = {
   balance: number;
   nextContribution: string;
@@ -188,6 +196,10 @@ export type VirtualAccountResponse = {
   success?: boolean;
 };
 
+export async function getHealth() {
+  return request<HealthResponse>("/health");
+}
+
 export async function login(memberId: string) {
   return request<{
     token: string;
@@ -336,27 +348,46 @@ export async function simulateDeposit(payload: {
   });
 }
 
+export type NombaCronStatus = {
+  running: boolean;
+  lastRunAt: string;
+  pendingCredits: number;
+  pollIntervalMs: number;
+  nombaConfigured: boolean;
+};
+
+export type NombaCronRunResponse = {
+  trigger: string;
+  scannedTransactions: number;
+  processedCredits: number;
+  queuedCreditsProcessed: number;
+  matchedCooperatives: number;
+  pendingCredits: number;
+  lastRunAt: string;
+  source: string;
+};
+
+export type NombaCredit = {
+  id: string;
+  cooperativeId: string;
+  amount: number;
+  nombaTransactionRef: string;
+  source: string;
+  createdAt: string;
+};
+
+export type NombaTestCreditResponse = {
+  queued: boolean;
+  credit: NombaCredit;
+  note: string;
+};
+
 export async function getNombaCronStatus() {
-  return request<{
-    running: boolean;
-    lastRunAt: string;
-    pendingCredits: number;
-    pollIntervalMs: number;
-    nombaConfigured: boolean;
-  }>("/cron/nomba/status");
+  return request<NombaCronStatus>("/cron/nomba/status");
 }
 
 export async function runNombaCron(trigger: "manual" | "test" = "manual") {
-  return request<{
-    trigger: string;
-    scannedTransactions: number;
-    processedCredits: number;
-    queuedCreditsProcessed: number;
-    matchedCooperatives: number;
-    pendingCredits: number;
-    lastRunAt: string;
-    source: string;
-  }>("/cron/nomba/run", {
+  return request<NombaCronRunResponse>("/cron/nomba/run", {
     method: "POST",
     body: JSON.stringify({ trigger }),
   });
@@ -367,11 +398,7 @@ export async function queueTestNombaCredit(payload: {
   amount: number;
   nombaTransactionRef?: string;
 }) {
-  return request<{
-    queued: boolean;
-    credit: { id: string; cooperativeId: string; amount: number; nombaTransactionRef: string; source: string; createdAt: string };
-    note: string;
-  }>("/cron/nomba/test-credit", {
+  return request<NombaTestCreditResponse>("/cron/nomba/test-credit", {
     method: "POST",
     body: JSON.stringify(payload),
   });
