@@ -84,6 +84,8 @@ export function CooperativePage() {
             </div>
           </section>
         )}
+
+        <section className="trust-card page-reveal">
           <div className="trust-card__gauge">
             <div className="score-ring score-ring--large">
               <span>{cooperative?.healthScore ?? 0}</span>
