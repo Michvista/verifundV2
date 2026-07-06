@@ -3,13 +3,46 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { navItems } from '../data';
 import type { UserRole } from '../services/session';
-import { IconBell, IconSearch, IconUser } from './icons';
+import {
+  IconAlert,
+  IconBell,
+  IconBuilding,
+  IconDashboard,
+  IconGlobe,
+  IconList,
+  IconLogout,
+  IconMessage,
+  IconPulse,
+  IconSearch,
+  IconSettings,
+  IconShield,
+  IconUser,
+  IconWallet,
+} from './icons';
 
 function loadCooperativeId() {
   return localStorage.getItem('verifund_cooperative_id') || '';
 }
 
 export const ACTIVE_COOPERATIVE_EVENT = 'verifund-active-cooperative-change';
+
+function NavIcon({ icon }: { icon: (typeof navItems)[number]['icon'] }) {
+  const icons = {
+    alert: <IconAlert />,
+    building: <IconBuilding />,
+    dashboard: <IconDashboard />,
+    globe: <IconGlobe />,
+    list: <IconList />,
+    message: <IconMessage />,
+    pulse: <IconPulse />,
+    settings: <IconSettings />,
+    shield: <IconShield />,
+    user: <IconUser />,
+    wallet: <IconWallet />,
+  };
+
+  return <span className="sidebar__link-icon">{icons[icon]}</span>;
+}
 
 export function Shell() {
   const location = useLocation();
@@ -54,8 +87,8 @@ export function Shell() {
   }
 
   const visibleNavItems = navItems.filter(canAccessNavItem);
-  const primaryNavItems = visibleNavItems.slice(0, 6);
-  const secondaryNavItems = visibleNavItems.slice(6);
+  const primaryNavItems = visibleNavItems.filter((item) => item.group !== 'secondary');
+  const secondaryNavItems = visibleNavItems.filter((item) => item.group === 'secondary');
   const canManageCooperative = user?.role === 'admin';
 
   const shouldUseDarkFrame =
@@ -71,21 +104,26 @@ export function Shell() {
       <aside className={`sidebar ${mobileNavOpen ? 'sidebar--open' : ''}`}>
         <div className="brand">
           <div className="brand__wordmark">VeriFund</div>
-          <div className="brand__sub">Digital Treasury</div>
+          <div className="brand__sub">Cooperative OS</div>
         </div>
 
         {user && (
           <div className="sidebar-user">
-            <div className="sidebar-user__name">
-              {user.firstName} {user.lastName}
+            <div className="sidebar-user__avatar">{user.firstName.charAt(0)}{user.lastName.charAt(0)}</div>
+            <div>
+              <div className="sidebar-user__name">
+                {user.firstName} {user.lastName}
+              </div>
+              <div className="sidebar-user__role">{user.role}</div>
             </div>
-            <div className="sidebar-user__role">{user.role}</div>
           </div>
         )}
 
         <div className="sidebar__context">
-          <span>Active Cooperative</span>
-          <strong>{cooperativeId || 'Not set'}</strong>
+          <div>
+            <span>Active Cooperative</span>
+            <strong>{cooperativeId || 'Not set'}</strong>
+          </div>
           <button
             className="button button--ghost button--full"
             onClick={() => navigate(canManageCooperative ? '/admin/cooperative' : '/cooperative')}
@@ -106,6 +144,7 @@ export function Shell() {
               className={({ isActive }) => `sidebar__link ${isActive ? 'is-active' : ''}`}
               onClick={() => setMobileNavOpen(false)}
             >
+              <NavIcon icon={item.icon} />
               {item.label}
             </NavLink>
           ))}
@@ -120,14 +159,16 @@ export function Shell() {
                 className={({ isActive }) => `sidebar__link ${isActive ? 'is-active' : ''}`}
                 onClick={() => setMobileNavOpen(false)}
               >
+                <NavIcon icon={item.icon} />
                 {item.label}
               </NavLink>
             ))}
           </div>
         )}
 
-        <button className="button button--ghost sidebar__cta" onClick={handleLogout}>
-          Sign Out
+        <button className="button button--ghost sidebar__cta sidebar__cta--logout" onClick={handleLogout}>
+          <IconLogout />
+          <span>Sign Out</span>
         </button>
       </aside>
 
@@ -161,8 +202,8 @@ export function Shell() {
             <button className="icon-button" aria-label="Notifications">
               <IconBell />
             </button>
-            <button className="icon-button" aria-label="User menu" onClick={() => navigate('/login')}>
-              <IconUser />
+            <button className="icon-button" aria-label={user ? 'Sign out' : 'Sign in'} onClick={user ? handleLogout : () => navigate('/login')}>
+              {user ? <IconLogout /> : <IconUser />}
             </button>
           </div>
         </header>

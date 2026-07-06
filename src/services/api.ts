@@ -11,14 +11,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     ? { Authorization: `Bearer ${token}` }
     : {};
 
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders,
-      ...(init?.headers || {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...(init?.headers || {}),
+      },
+    });
+  } catch {
+    throw new Error(
+      "Unable to reach the VeriFund API. Check your connection, wait a moment, then try again.",
+    );
+  }
 
   if (!response.ok) {
     if (response.status === 401) {

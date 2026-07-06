@@ -42,14 +42,22 @@ export async function loginController(req: Request, res: Response) {
   if (!memberId)
     return res.status(400).json({ message: "memberId is required" });
 
-  const member = await getMemberOrThrowData(String(memberId));
-  return res.json({
-    token: signAuthToken(member),
-    member: {
-      id: member.id,
-      firstName: member.firstName,
-      lastName: member.lastName,
-      role: member.role,
-    },
-  });
+  try {
+    const member = await getMemberOrThrowData(String(memberId));
+    return res.json({
+      token: signAuthToken(member),
+      member: {
+        id: member.id,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        role: member.role,
+      },
+    });
+  } catch (err) {
+    console.error("Login error:", err);
+    return res.status(401).json({
+      message:
+        "We could not find that member ID. Check the ID or register again if the backend was recently restarted.",
+    });
+  }
 }

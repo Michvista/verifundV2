@@ -37,6 +37,10 @@ function formatNaira(value: number | string) {
   return `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
 }
 
+const requestWithdrawalRoles = ['admin', 'treasurer'];
+const signWithdrawalRoles = ['admin', 'treasurer', 'executive1', 'executive2'];
+const releaseWithdrawalRoles = ['admin', 'treasurer'];
+
 export function WithdrawalPage() {
   const { user } = useAuth();
   const [cooperativeId, setCooperativeId] = useState(loadCooperativeId);
@@ -140,6 +144,10 @@ export function WithdrawalPage() {
 
   const amountValue = Number(amount.replace(/[^0-9]/g, '') || 0);
   const trimmedPurpose = purpose.trim();
+  const userRole = user?.role ?? '';
+  const canRequestWithdrawal = requestWithdrawalRoles.includes(userRole);
+  const canSignWithdrawal = signWithdrawalRoles.includes(userRole);
+  const canReleaseWithdrawal = releaseWithdrawalRoles.includes(userRole);
   const canSubmitWithdrawal = Boolean(
     amountValue &&
       accountNumber.length === 10 &&
@@ -147,6 +155,7 @@ export function WithdrawalPage() {
       trimmedPurpose &&
       cooperativeId &&
       user &&
+      canRequestWithdrawal &&
       verifiedName &&
       !verifying,
   );
@@ -262,7 +271,7 @@ export function WithdrawalPage() {
   }
 
   async function handleSign() {
-    if (!selectedQueueId || !user) return;
+    if (!selectedQueueId || !user || !canSignWithdrawal) return;
     setActionLoading(true);
     setActionMsg(null);
     try {
@@ -282,7 +291,7 @@ export function WithdrawalPage() {
   }
 
   async function handleRelease() {
-    if (!selectedQueueId || !selectedQueueItem) return;
+    if (!selectedQueueId || !selectedQueueItem || !canReleaseWithdrawal) return;
     setActionLoading(true);
     setActionMsg(null);
     try {
@@ -299,7 +308,11 @@ export function WithdrawalPage() {
     }
   }
 
-  const canRelease = Boolean(selectedQueueItem && (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved'));
+  const canRelease = Boolean(
+    canReleaseWithdrawal &&
+      selectedQueueItem &&
+      (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved'),
+  );
 
   if (!cooperativeId || !user) {
     return <section className="note-panel page-reveal">Log in and select a cooperative before using the withdrawal flow.</section>;
@@ -319,6 +332,12 @@ export function WithdrawalPage() {
       <div className="withdrawal-grid">
         <section className="withdrawal-form page-reveal">
           <div className="eyebrow">Transaction Details</div>
+
+          {!canRequestWithdrawal && (
+            <div className="callout" style={{ marginBottom: 12 }}>
+              Your role can review and sign withdrawal requests, but only admins and treasurers can create them.
+            </div>
+          )}
 
           {bankNotice && <div className="notice" style={{ marginBottom: 12 }}>{bankNotice}</div>}
 
@@ -444,13 +463,23 @@ export function WithdrawalPage() {
               )}
 
               <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
-                <button className="button button--ghost button--full" disabled={actionLoading} onClick={handleSign}>
+                <button
+                  className="button button--ghost button--full"
+                  disabled={!canSignWithdrawal || actionLoading}
+                  onClick={handleSign}
+                >
                   {actionLoading ? 'Processing...' : 'Sign'}
                 </button>
                 <button className="button button--primary button--full" disabled={!canRelease || actionLoading} onClick={handleRelease}>
                   {actionLoading ? 'Releasing...' : 'Release Nomba Transfer'}
                 </button>
               </div>
+
+              {!canReleaseWithdrawal && (
+                <div className="callout" style={{ marginTop: 12 }}>
+                  Release is restricted to admins and treasurers after quorum is reached.
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -599,7 +628,7 @@ export function WithdrawalPage() {
         }}
         footer={
           <div className="alert-actions">
-            <button className="button button--ghost" disabled={actionLoading} onClick={handleSign}>
+            <button className="button button--ghost" disabled={!canSignWithdrawal || actionLoading} onClick={handleSign}>
               {actionLoading ? '...' : 'Sign'}
             </button>
             <button className="button button--primary" disabled={!canRelease || actionLoading} onClick={handleRelease}>
