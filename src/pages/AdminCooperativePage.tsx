@@ -7,6 +7,7 @@ import {
   type CooperativeType,
   type VirtualAccountResponse,
 } from '../services/api';
+import { writeStorage } from '../services/browserStorage';
 
 type CreateCooperativeResult = {
   cooperative: CooperativeResponse;
@@ -52,9 +53,9 @@ export function AdminCooperativePage() {
         bvn: trimmedBvn,
         expectedContributionAmount: parsedExpectedContributionAmount,
       });
-      localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
+      writeStorage('verifund_cooperative_id', response.cooperative.id);
       if (response.virtualAccount.accountNumber) {
-        localStorage.setItem(
+        writeStorage(
           'verifund_virtual_account',
           JSON.stringify({
             accountNumber: response.virtualAccount.accountNumber,

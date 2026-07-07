@@ -4,6 +4,7 @@ import { Modal } from '../components/Modal';
 import { StatusPill } from '../components/StatusPill';
 import { useAuth } from '../auth/AuthContext';
 import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
+import { readStorage } from '../services/browserStorage';
 import {
   getBanks,
   getQueue,
@@ -51,13 +52,13 @@ const fallbackBanks: Bank[] = [
 ];
 
 function loadCooperativeId() {
-  return localStorage.getItem('verifund_cooperative_id') || '';
+  return readStorage('verifund_cooperative_id') || '';
 }
 
-function formatNaira(value: number | string) {
+function formatNaira(value: number | string | undefined) {
   const n = typeof value === 'string' ? Number(value.replace(/[^0-9.]/g, '')) : value;
-  if (Number.isNaN(n)) return '₦0.00';
-  return `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+  const safeValue = Number.isFinite(n) ? Number(n) : 0;
+  return `₦${safeValue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
 }
 
 const requestWithdrawalRoles = ['admin', 'treasurer'];
@@ -257,9 +258,10 @@ export function WithdrawalPage() {
         cooperativeId,
         requestedBy: user.id,
       });
+      const withdrawalId = result.withdrawalId || `local-${Date.now()}`;
 
       const newItem: QueueItem = {
-        id: result.withdrawalId,
+        id: withdrawalId,
         cooperativeId,
         requestedBy: user.id,
         amount: amountValue,
@@ -272,14 +274,14 @@ export function WithdrawalPage() {
         average30d,
         signatureCount: 0,
         explanations: result.reasons,
-        ref: `#${result.withdrawalId.toUpperCase().slice(0, 8)}`,
+        ref: `#${withdrawalId.toUpperCase().slice(0, 8)}`,
         initiated: new Date().toLocaleDateString('en-GB'),
         recipient: verifiedName ?? accountNumber,
         sigs: '□ □ □',
       };
 
       setQueue((prev) => [newItem, ...prev.filter((item) => item.id !== newItem.id)]);
-      setSelectedQueueId(result.withdrawalId);
+      setSelectedQueueId(withdrawalId);
       setSelectedQueueItem(newItem);
       setAmount('');
       setAccountNumber('');

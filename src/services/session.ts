@@ -1,3 +1,5 @@
+import { readJsonStorage, readStorage, removeStorage, writeStorage } from "./browserStorage";
+
 export type UserRole =
   | "member"
   | "treasurer"
@@ -34,19 +36,12 @@ function notifySessionChanged() {
 
 export function getStoredToken() {
   if (!hasStorage()) return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+  return readStorage(TOKEN_KEY);
 }
 
 export function getStoredUser(): AuthUser | null {
   if (!hasStorage()) return null;
-
-  try {
-    const raw = window.localStorage.getItem(USER_KEY);
-    return raw ? (JSON.parse(raw) as AuthUser) : null;
-  } catch {
-    clearStoredSession();
-    return null;
-  }
+  return readJsonStorage<AuthUser>(USER_KEY);
 }
 
 export function getStoredSession(): AuthSession | null {
@@ -60,16 +55,16 @@ export function getStoredSession(): AuthSession | null {
 export function saveStoredSession(session: AuthSession) {
   if (!hasStorage()) return;
 
-  window.localStorage.setItem(TOKEN_KEY, session.token);
-  window.localStorage.setItem(USER_KEY, JSON.stringify(session.user));
+  writeStorage(TOKEN_KEY, session.token);
+  writeStorage(USER_KEY, JSON.stringify(session.user));
   notifySessionChanged();
 }
 
 export function clearStoredSession() {
   if (!hasStorage()) return;
 
-  window.localStorage.removeItem(TOKEN_KEY);
-  window.localStorage.removeItem(USER_KEY);
+  removeStorage(TOKEN_KEY);
+  removeStorage(USER_KEY);
   notifySessionChanged();
 }
 

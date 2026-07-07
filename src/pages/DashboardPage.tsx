@@ -6,6 +6,7 @@ import { Sparkline } from '../components/Sparkline';
 import { NombaOperationsPanel } from '../components/NombaOperationsPanel';
 import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
 import { useAuth } from '../auth/AuthContext';
+import { readStorage } from '../services/browserStorage';
 import {
   getDashboard,
   submitContribution,
@@ -16,11 +17,13 @@ import {
 type WsStatus = 'idle' | 'connected' | 'disconnected';
 
 function loadCooperativeId() {
-  return localStorage.getItem('verifund_cooperative_id') || '';
+  return readStorage('verifund_cooperative_id') || '';
 }
 
-function formatNaira(value: number) {
-  return `₦${value.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
+function formatNaira(value: number | string | undefined) {
+  const parsed = typeof value === 'string' ? Number(value.replace(/[^0-9.]/g, '')) : Number(value ?? 0);
+  const safeValue = Number.isFinite(parsed) ? parsed : 0;
+  return `₦${safeValue.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
 }
 
 export function DashboardPage() {
@@ -81,7 +84,14 @@ export function DashboardPage() {
     if (!cooperativeId) return;
 
     const wsUrl = import.meta.env.VITE_WS_URL || 'ws://localhost:5050/ws';
-    const socket = new WebSocket(wsUrl);
+    let socket: WebSocket;
+
+    try {
+      socket = new WebSocket(wsUrl);
+    } catch {
+      setWsStatus('disconnected');
+      return;
+    }
 
     setWsStatus('idle');
 
@@ -92,16 +102,19 @@ export function DashboardPage() {
     socket.onmessage = (event) => {
       try {
         const parsed = JSON.parse(event.data as string) as {
-          type: string;
-          message: string;
-          timestamp: string;
+          type?: string;
+          message?: string;
+          timestamp?: string;
         };
+        const type = parsed.type || 'realtime-event';
+        const timestamp = parsed.timestamp || new Date().toISOString();
+
         setLiveFeed((current) =>
           [
             {
-              id: `${parsed.type}-${parsed.timestamp}`,
-              title: parsed.type.replace(/-/g, ' '),
-              text: parsed.message,
+              id: `${type}-${timestamp}`,
+              title: type.replace(/-/g, ' '),
+              text: parsed.message || 'Realtime update received.',
               time: 'just now',
             },
             ...current,

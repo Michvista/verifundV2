@@ -34,9 +34,9 @@ export function LandingPage() {
         <div className="landing-nav__actions">
           <Link to="/public/lookup">Lookup</Link>
           <Link to="/whistleblower">Report</Link>
-          <Link to={isAuthenticated ? '/dashboard' : '/login'}>
-            {isAuthenticated ? 'Dashboard' : 'Login'}
-          </Link>
+          <Link to="/login">Login</Link>
+          <Link className="landing-nav__cta" to="/onboard">Sign Up</Link>
+          {isAuthenticated && <Link to="/dashboard">Dashboard</Link>}
         </div>
       </nav>
 
@@ -48,6 +48,11 @@ export function LandingPage() {
             <Link className="button button--primary" to={isAuthenticated ? '/dashboard' : '/onboard'}>
               {isAuthenticated ? 'Open Dashboard' : 'Join a Cooperative'}
             </Link>
+            {!isAuthenticated && (
+              <Link className="button button--ghost" to="/login">
+                Login
+              </Link>
+            )}
             <Link className="button button--ghost" to="/cooperative/trust-score">
               View Demo
             </Link>
