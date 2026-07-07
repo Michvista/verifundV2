@@ -4,15 +4,15 @@ import { useAuth } from '../auth/AuthContext';
 const featureCards = [
   {
     title: 'Verified cooperative onboarding',
-    text: 'Create member accounts, cooperative profiles, and treasury references with clean audit trails.',
+    text: 'Create cooperative records with audit trails.',
   },
   {
     title: 'Multi-signature withdrawals',
-    text: 'Keep large disbursements accountable with role-based approvals and release controls.',
+    text: 'Control large disbursements with approvals.',
   },
   {
     title: 'Explainable risk monitoring',
-    text: 'Surface fraud signals, trust scores, and transaction anomalies before funds move.',
+    text: 'Spot fraud signals before funds move.',
   },
 ];
 
@@ -42,13 +42,8 @@ export function LandingPage() {
 
       <section className="landing-hero">
         <div className="landing-hero__copy page-reveal">
-          <div className="eyebrow">Secure financial cooperatives</div>
           <h1>Building Trust in Every Contribution</h1>
-          <p>
-            VeriFund provides an unshakeable foundation for cooperative finance. We combine
-            institutional-grade security with intuitive tools to ensure transparency and
-            accountability at every level.
-          </p>
+          <p>VeriFund helps cooperatives manage money, approvals, and risk in one place.</p>
           <div className="landing-hero__actions">
             <Link className="button button--primary" to={isAuthenticated ? '/dashboard' : '/onboard'}>
               {isAuthenticated ? 'Open Dashboard' : 'Join a Cooperative'}
@@ -56,10 +51,6 @@ export function LandingPage() {
             <Link className="button button--ghost" to="/cooperative/trust-score">
               View Demo
             </Link>
-          </div>
-          <div className="landing-trust">
-            <span>✓</span>
-            Trusted by 500+ cooperatives across Nigeria
           </div>
         </div>
 
@@ -85,10 +76,7 @@ export function LandingPage() {
       <section className="landing-section" id="features">
         <div className="landing-section__intro">
           <h2>Institutional Security. Agile Execution.</h2>
-          <p>
-            Our platform is engineered to mitigate risk and automate compliance, allowing your
-            cooperative to focus on growth.
-          </p>
+          <p>Built to keep cooperative operations simple and controlled.</p>
         </div>
 
         <div className="landing-feature-grid">
@@ -104,19 +92,14 @@ export function LandingPage() {
 
       <section className="landing-split" id="about">
         <div>
-          <div className="eyebrow">Why VeriFund</div>
           <h2>Transparent treasury operations for member-owned finance.</h2>
         </div>
-        <p>
-          From onboarding to disbursement, VeriFund helps cooperatives prove who approved what,
-          why funds moved, and how risk was evaluated before execution.
-        </p>
+        <p>Track approvals, balances, and risk without extra complexity.</p>
       </section>
 
       <section className="landing-contact" id="contact">
         <div>
           <h2>Ready to protect your cooperative treasury?</h2>
-          <p>Start with onboarding, or verify an existing cooperative record.</p>
         </div>
         <div className="landing-contact__actions">
           <Link className="button button--primary" to="/onboard">

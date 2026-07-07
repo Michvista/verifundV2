@@ -67,10 +67,9 @@ export function CooperativePage() {
     return (
       <SectionCard
         title="No cooperative selected"
-        subtitle="Create a cooperative first to inspect its live record."
         className="page-reveal"
       >
-        <p className="empty-state">Use the setup page to create the treasury and load this view.</p>
+        <p className="empty-state">Select a cooperative to view its record.</p>
       </SectionCard>
     );
   }
@@ -81,9 +80,8 @@ export function CooperativePage() {
   return (
     <div className="cooperative-layout">
       <aside className="identity-panel page-reveal">
-        <div className="eyebrow">Entity Identity</div>
         <h2>{cooperative?.name ?? (loading ? 'Loading cooperative...' : cooperativeId)}</h2>
-        <p>{cooperative?.state ?? (loading ? 'Fetching live record' : 'Live cooperative record')}</p>
+        <p>{cooperative?.state ?? (loading ? 'Loading' : 'Live record')}</p>
         <div className="identity-panel__meta">
           <Metric label="Registration" value={cooperative?.registrationNumber ?? (loading ? 'Loading...' : cooperativeId)} />
           <Metric
@@ -106,18 +104,12 @@ export function CooperativePage() {
         {(virtualAccount?.accountNumber || cooperative?.nombaVirtualAccountNumber || cooperative?.nombaVirtualAccountRef) && (
           <section className="trust-card page-reveal" style={{ background: 'var(--surface-raised)', border: '2px solid var(--accent)' }}>
             <div className="trust-card__body" style={{ width: '100%' }}>
-              <div className="eyebrow" style={{ color: 'var(--accent)' }}>Nomba Virtual Account - Send Money Here</div>
               <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: 3, fontFamily: 'monospace', marginTop: 8 }}>
                 {virtualAccount?.accountNumber ?? cooperative?.nombaVirtualAccountNumber ?? cooperative?.nombaVirtualAccountRef}
               </div>
               <div style={{ marginTop: 4, opacity: 0.75 }}>
                 {virtualAccount?.bankName ?? 'Nomba'}
               </div>
-              <p style={{ marginTop: 12, fontSize: 13 }}>
-                Transfer real NGN to this account number from any Nigerian banking app (GTB, Access, Zenith, etc.).
-                The cooperative balance updates automatically within 60 seconds via the Nomba transaction sync.
-                <strong> The treasurer cannot withdraw this money directly</strong> — every payout requires multi-signature approval.
-              </p>
               <StatusPill tone="success">LIVE REAL MONEY</StatusPill>
             </div>
           </section>
@@ -140,14 +132,7 @@ export function CooperativePage() {
             </div>
           </div>
           <div className="trust-card__body">
-            <div className="eyebrow">Treasury Position</div>
-            <p>
-              {cooperative
-                ? 'This cooperative is tied to a real Nomba virtual account and an active treasury record.'
-                : loading
-                  ? 'Loading cooperative treasury details.'
-                  : 'No cooperative data loaded yet.'}
-            </p>
+            <p>{cooperative ? 'Live treasury record.' : loading ? 'Loading record...' : 'No cooperative data loaded yet.'}</p>
           </div>
           <div className="trust-card__bars">
             {cooperative?.scoreBreakdown?.length ? (
@@ -168,7 +153,6 @@ export function CooperativePage() {
 
         <SectionCard
           title="Trust Performance History"
-          subtitle="Live comparison against the current cooperative trajectory."
           className="page-reveal"
         >
           {cooperative?.trustHistory?.length ? (
@@ -180,7 +164,6 @@ export function CooperativePage() {
 
         <SectionCard
           title="Live Audit Feed"
-          subtitle="Transaction history is anchored and redacted for public display."
           actions={<StatusPill tone="soft">LIVE ENCRYPTION ACTIVE</StatusPill>}
           className="page-reveal"
         >

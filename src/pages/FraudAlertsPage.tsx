@@ -72,7 +72,6 @@ export function FraudAlertsPage() {
             key={alert.id}
             onClick={() => setSelectedId(alert.id)}
           >
-            <div className="eyebrow">{(alert.type || alert.alertType).replace('_', ' ')}</div>
             <h2>{alert.title}</h2>
             <p>{alert.reason}</p>
             <div className="alert-card__footer">
@@ -96,7 +95,7 @@ export function FraudAlertsPage() {
       ) : (
         <section className="alert-card page-reveal">
           <p className="empty-state">
-            {loading ? 'Loading fraud alerts...' : 'No fraud alerts yet. They will appear after live activity triggers a rule.'}
+            {loading ? 'Loading...' : 'No fraud alerts yet.'}
           </p>
         </section>
       )}
@@ -114,7 +113,7 @@ export function FraudAlertsPage() {
         }
       >
         {detailLoading ? (
-          <p className="empty-state">Loading alert detail...</p>
+          <p className="empty-state">Loading...</p>
         ) : detailError ? (
           <div className="callout">{detailError}</div>
         ) : selectedAlert ? (

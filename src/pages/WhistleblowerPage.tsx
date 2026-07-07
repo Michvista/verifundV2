@@ -37,12 +37,7 @@ export function WhistleblowerPage() {
     return (
       <div className="whistle-layout">
         <section className="center-card page-reveal">
-          <div className="eyebrow">Report Submitted</div>
           <h2>Thank you for your report</h2>
-          <p>
-            Your submission has been routed into the fraud triage queue. Reporter identity is
-            masked by default.
-          </p>
           {submission && (
             <div className="success-block" style={{ marginTop: 18 }}>
               <div className="success-block__row">
@@ -63,9 +58,6 @@ export function WhistleblowerPage() {
               </div>
             </div>
           )}
-          <div className="notice" style={{ marginTop: 18 }}>
-            Keep your Report ID safe. You may use it to follow up with a regulator if needed.
-          </div>
           <button
             className="button button--ghost button--full"
             style={{ marginTop: 16 }}
@@ -86,11 +78,7 @@ export function WhistleblowerPage() {
   return (
     <div className="whistle-layout">
       <section className="center-card page-reveal">
-        <div className="eyebrow">Anonymous Fraud Report</div>
-        <h2>Submit concerns without revealing your identity</h2>
-        <p>
-          We route this through the fraud triage queue and mask reporter details by default.
-        </p>
+        <h2>Submit concerns</h2>
 
         <label className="input-block">
           <span>What happened?</span>
@@ -104,8 +92,7 @@ export function WhistleblowerPage() {
 
         {report && !canSubmit && (
           <div className="notice" style={{ marginTop: 12 }}>
-            Add a little more detail before submitting. Reports need at least {MIN_REPORT_LENGTH}{' '}
-            characters.
+            Add a little more detail. Reports need at least {MIN_REPORT_LENGTH} characters.
           </div>
         )}
 
@@ -130,7 +117,7 @@ export function WhistleblowerPage() {
           disabled={!canSubmit || loading}
           onClick={handleSubmit}
         >
-          {loading ? 'Sending report...' : 'Send Report Anonymously'}
+          {loading ? 'Sending...' : 'Send Report'}
         </button>
       </section>
     </div>

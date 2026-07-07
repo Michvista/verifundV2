@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register, type RegisterResponse } from '../services/api';
+import type { UserRole } from '../services/session';
 
 type Step = 'form' | 'success';
+type SignupRole = UserRole;
 
 function ProfileIcon() {
   return (
@@ -47,6 +49,7 @@ export function OnboardPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [bvn, setBvn] = useState('');
+  const [role, setRole] = useState<SignupRole>('member');
 
   const [result, setResult] = useState<RegisterResponse | null>(null);
   const trimmedFullName = fullName.trim();
@@ -70,7 +73,7 @@ export function OnboardPage() {
         phoneNumber: trimmedPhone,
         password,
         bvnHash,
-        role: 'member',
+        role,
       });
       setResult(res);
       setBvn('');
@@ -98,14 +101,6 @@ export function OnboardPage() {
 
           <div className="success-block">
             <div className="success-block__row">
-              <span>Member ID</span>
-              <strong style={{ fontFamily: 'monospace' }}>{result.member.id}</strong>
-            </div>
-            <div className="success-block__row">
-              <span>Role</span>
-              <strong>{result.member.role}</strong>
-            </div>
-            <div className="success-block__row">
               <span>BVN Verified</span>
               <strong
                 style={{
@@ -115,28 +110,6 @@ export function OnboardPage() {
                 {result.member.bvnVerified ? 'Verified' : 'Unverified'}
               </strong>
             </div>
-          </div>
-
-          {!result.verification.verified && (
-            <div className="notice" style={{ marginTop: 16 }}>
-              This BVN is already linked to another profile. Use a fresh BVN if you want a new
-              member record.
-            </div>
-          )}
-
-          <div className="nomba-explanation">
-            <div className="eyebrow" style={{ marginBottom: 8 }}>
-              Why the virtual account matters
-            </div>
-            <p>
-              The virtual account is the anti-absconding mechanism. Contributions flow into a
-              dedicated Nomba account the treasurer cannot touch directly. Withdrawals still
-              require multi-signature approval and a risk check before Nomba releases funds.
-            </p>
-          </div>
-
-          <div className="notice" style={{ marginTop: 0 }}>
-            Account reference: <strong>{result.member.id}</strong>
           </div>
 
           <button
@@ -237,6 +210,21 @@ export function OnboardPage() {
                 inputMode="numeric"
                 autoComplete="off"
               />
+            </div>
+          </label>
+
+          <label className="auth-field">
+            <span>Account Role</span>
+            <div className="auth-field__control">
+              <span className="auth-field__icon" aria-hidden="true">◆</span>
+              <select value={role} onChange={(e) => setRole(e.target.value as SignupRole)}>
+                <option value="member">Member</option>
+                <option value="treasurer">Treasurer</option>
+                <option value="executive1">Executive 1</option>
+                <option value="executive2">Executive 2</option>
+                <option value="admin">Admin</option>
+                <option value="regulator">Regulator</option>
+              </select>
             </div>
           </label>
 

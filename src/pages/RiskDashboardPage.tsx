@@ -71,10 +71,9 @@ export function RiskDashboardPage() {
     return (
       <SectionCard
         title="AI Risk Dashboard"
-        subtitle="Select or create a cooperative before loading risk intelligence."
         className="page-reveal"
       >
-        <p className="empty-state">No active cooperative is set yet.</p>
+        <p className="empty-state">No cooperative selected.</p>
       </SectionCard>
     );
   }
@@ -83,13 +82,10 @@ export function RiskDashboardPage() {
     <div className="withdrawal-layout">
       <section className="risk-panel page-reveal">
         <div className="risk-panel__copy">
-          <div className="eyebrow">AI Risk Dashboard</div>
           <div className="risk-panel__grid">
             <div>
               <h2>{cooperativeId}</h2>
-              <p style={{ color: 'var(--muted)', marginTop: 8 }}>
-                Backend-generated preview of withdrawal and contribution risk signals.
-              </p>
+              <p style={{ color: 'var(--muted)', marginTop: 8 }}>Risk preview from the backend.</p>
 
               <div className="risk-meter">
                 <div
@@ -130,7 +126,6 @@ export function RiskDashboardPage() {
 
       <SectionCard
         title="Risk Explanations"
-        subtitle="Reasons returned by the backend scoring engine."
         actions={<StatusPill tone={contributionTone}>CONTRIBUTIONS</StatusPill>}
         className="page-reveal"
       >
@@ -142,7 +137,7 @@ export function RiskDashboardPage() {
           </ul>
         ) : (
           <p className="empty-state">
-            {loading ? 'Loading risk explanations...' : 'No withdrawal risk reasons returned yet.'}
+            {loading ? 'Loading...' : 'No reasons yet.'}
           </p>
         )}
 
@@ -152,7 +147,7 @@ export function RiskDashboardPage() {
           </div>
         ) : (
           <p className="empty-state" style={{ marginTop: 14 }}>
-            Contribution signal is currently clear.
+            No contribution signal reasons yet.
           </p>
         )}
       </SectionCard>

@@ -74,12 +74,7 @@ export function AdminCooperativePage() {
   return (
     <div className="admin-grid">
       <section className="admin-panel page-reveal">
-        <div className="eyebrow">Cooperative Setup</div>
         <h2>Create a live cooperative record</h2>
-        <p className="empty-state" style={{ marginTop: 10 }}>
-          This page creates the treasury shell that Nomba will bind to a virtual account. No
-          seed cooperative is loaded here.
-        </p>
 
         <label className="input-block">
           <span>Cooperative Name</span>
@@ -149,9 +144,7 @@ export function AdminCooperativePage() {
       </section>
 
       <section className="admin-panel admin-panel--dark page-reveal">
-        <div className="eyebrow">Why it matters</div>
         <h2>The virtual account is the control plane.</h2>
-        <div className="admin-panel__balance">No cash leaves the ledger without Nomba.</div>
         <div className="admin-panel__stats">
           <div>
             <span>Active Cooperative</span>

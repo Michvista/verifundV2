@@ -58,7 +58,6 @@ export function LoginPage() {
         <div className="auth-card__header">
           <Link className="auth-card__brand" to="/">VeriFund</Link>
           <h1>Member Login</h1>
-          <p>Access your cooperative treasury workspace.</p>
         </div>
 
         <form
@@ -119,9 +118,6 @@ export function LoginPage() {
           </button>
         </form>
 
-        <div className="auth-card__secure">
-          Secured by encrypted authentication
-        </div>
       </section>
 
       <p className="auth-card__outside-footer">

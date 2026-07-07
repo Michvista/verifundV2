@@ -50,9 +50,7 @@ export function TrustScorePage() {
 
   if (!cooperativeId) {
     return (
-      <section className="note-panel page-reveal">
-        Create or select a cooperative first, then load its trust score here.
-      </section>
+      <section className="note-panel page-reveal">Select a cooperative to view its trust score.</section>
     );
   }
 
@@ -64,9 +62,8 @@ export function TrustScorePage() {
   return (
     <div className="trust-page">
       <aside className="trust-page__sidebar page-reveal">
-        <div className="eyebrow">Entity Identity</div>
         <h2>{trustScore?.name ?? (loading ? 'Loading cooperative...' : cooperativeId)}</h2>
-        <div className="trust-page__location">{loading ? 'Fetching trust score' : 'Live cooperative record'}</div>
+        <div className="trust-page__location">{loading ? 'Loading' : 'Live record'}</div>
         <div className="mini-sections">
           <div>
             <span>Registration</span>
@@ -94,21 +91,14 @@ export function TrustScorePage() {
 
         <section className="trust-score-panel page-reveal">
           <div className="trust-score-panel__left">
-            <div className="eyebrow">Trust Score Index</div>
             <div className="score-ring score-ring--xl">
               <span>{score}</span>
               <small>{scoreStatus}</small>
             </div>
-            <p>
-              {trustScore?.summary ??
-                (loading
-                  ? 'Loading the latest trust score for this cooperative.'
-                  : 'No trust score has been generated yet for this cooperative.')}
-            </p>
+            <p>{trustScore?.summary ?? (loading ? 'Loading score...' : 'No trust score yet.')}</p>
           </div>
 
           <div className="trust-score-panel__right">
-            <div className="eyebrow">Score Breakdown</div>
             {breakdown.length ? (
               breakdown.map((bar) => (
                 <div key={bar.label} className="bar-row bar-row--interactive">
@@ -129,7 +119,6 @@ export function TrustScorePage() {
           <div className="section-card__header">
             <div>
               <h2>Trust Performance History</h2>
-              <p>Live history from the cooperative trust engine.</p>
             </div>
             <StatusPill tone="soft">LIVE</StatusPill>
           </div>
@@ -144,16 +133,12 @@ export function TrustScorePage() {
           <div className="section-card__header">
             <div>
               <h2>Live Audit Feed</h2>
-              <p>Anchored to the VeriFund ledger.</p>
             </div>
-            <StatusPill tone="soft">LIVE ENCRYPTION ACTIVE</StatusPill>
+            <StatusPill tone="soft">LIVE</StatusPill>
           </div>
           <AuditLogPanel cooperativeId={cooperativeId} />
         </section>
 
-        <section className="note-panel page-reveal">
-          The trust score is only meaningful when it is computed from real cooperative activity.
-        </section>
       </div>
     </div>
   );

@@ -32,11 +32,7 @@ export function PublicLookupPage() {
   return (
     <div className="lookup-page">
       <section className="lookup-card page-reveal">
-        <div className="eyebrow">Public Trust Registry</div>
         <h2>Search cooperative ID</h2>
-        <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 14 }}>
-          Enter a real cooperative ID to inspect its public trust profile.
-        </p>
 
         <label className="input-block">
           <span>Cooperative ID</span>
@@ -56,7 +52,7 @@ export function PublicLookupPage() {
 
         {result && (
           <div className="notice" style={{ marginTop: 12 }}>
-            Loaded public profile for <strong>{lastLookup}</strong>.
+            Loaded <strong>{lastLookup}</strong>.
           </div>
         )}
 
@@ -74,7 +70,6 @@ export function PublicLookupPage() {
         <section className="lookup-result page-reveal">
           <div className="lookup-result__header">
             <div>
-              <div className="eyebrow">Entity Identity</div>
               <h2>{result.name}</h2>
               <p style={{ marginTop: 6, color: 'var(--muted)' }}>{result.state}, Nigeria</p>
             </div>
@@ -106,16 +101,10 @@ export function PublicLookupPage() {
               </strong>
             </div>
           </div>
-
-          <p className="lookup-result__body">
-            This cooperative maintains an audit trail anchored to the VeriFund ledger.
-          </p>
         </section>
       ) : (
         <section className="lookup-result page-reveal">
-          <p className="empty-state">
-            No cooperative selected yet. Use a real cooperative ID to load the public profile.
-          </p>
+          <p className="empty-state">No cooperative selected yet.</p>
         </section>
       )}
     </div>
