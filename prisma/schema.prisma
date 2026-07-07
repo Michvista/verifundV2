@@ -38,6 +38,7 @@ model Cooperative {
   isActive               Boolean  @default(true)
   memberCount            Int      @default(0)
   balance                Float    @default(0)
+  expectedContributionAmount Float?
   members                CooperativeMember[]
   contributions          Contribution[]
   withdrawalRequests     WithdrawalRequest[]

@@ -242,11 +242,13 @@ Body:
   "registrationNumber": "LMW-2026-001",
   "stateName": "Lagos",
   "cooperativeType": "thrift",
-  "bvn": "12345678901"
+  "bvn": "12345678901",
+  "expectedContributionAmount": 20000
 }
 ```
 
-Required fields are `name`, `registrationNumber`, `stateName`, and `cooperativeType`.
+Required fields are `name`, `registrationNumber`, `stateName`, `cooperativeType`, `bvn`,
+and `expectedContributionAmount`.
 
 Success `201`:
 
@@ -264,7 +266,8 @@ Success `201`:
     "healthScore": 92,
     "isActive": true,
     "memberCount": 0,
-    "balance": 0
+    "balance": 0,
+    "expectedContributionAmount": 20000
   },
   "virtualAccount": {
     "success": true,
@@ -280,6 +283,11 @@ Success `201`:
 ```
 
 If Nomba virtual account creation fails, the endpoint returns `502` with a `message`.
+
+New cooperative virtual accounts are created without a fixed `expectedAmount`, so live member
+transfers are not limited to a single contribution amount. `expectedAmount` is still accepted
+later on contribution/risk-scoring endpoints when the UI wants to compare an actual contribution
+against an expected due amount.
 
 ### Get Cooperative
 

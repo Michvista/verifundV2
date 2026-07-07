@@ -32,6 +32,7 @@ export interface Cooperative {
   isActive: boolean;
   memberCount: number;
   balance: number;
+  expectedContributionAmount?: number;
 }
 
 export interface Contribution {
