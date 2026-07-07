@@ -4,6 +4,7 @@ import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { Sparkline } from '../components/Sparkline';
 import { NombaOperationsPanel } from '../components/NombaOperationsPanel';
+import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
 import { useAuth } from '../auth/AuthContext';
 import {
   getDashboard,
@@ -25,7 +26,7 @@ function formatNaira(value: number) {
 export function DashboardPage() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
-  const [cooperativeId] = useState(loadCooperativeId);
+  const [cooperativeId, setCooperativeId] = useState(loadCooperativeId);
   const [liveFeed, setLiveFeed] = useState<DashboardResponse['activityFeed']>([]);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
@@ -37,27 +38,44 @@ export function DashboardPage() {
   const [contributionMsg, setContributionMsg] = useState<string | null>(null);
 
   async function refresh() {
-    if (!cooperativeId) return;
+    if (!cooperativeId) {
+      setDashboard(null);
+      setLiveFeed([]);
+      return;
+    }
     setDashboardLoading(true);
     setDashboardError(null);
-    const data = await getDashboard(cooperativeId);
-    setDashboard(data);
-    setLiveFeed(data.activityFeed);
-    setDashboardLoading(false);
-  }
-
-  useEffect(() => {
-    if (!cooperativeId) return;
-    setDashboardLoading(true);
-    setDashboardError(null);
-    void refresh().catch((err) => {
+    try {
+      const data = await getDashboard(cooperativeId);
+      setDashboard(data);
+      setLiveFeed(data.activityFeed);
+    } catch (err) {
       const message = err instanceof Error ? err.message : 'Dashboard could not be loaded.';
       setDashboard(null);
       setLiveFeed([]);
       setDashboardError(message);
+    } finally {
       setDashboardLoading(false);
-    });
+    }
+  }
+
+  useEffect(() => {
+    void refresh();
   }, [cooperativeId]);
+
+  useEffect(() => {
+    function syncActiveCooperative() {
+      setCooperativeId(loadCooperativeId());
+    }
+
+    window.addEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+    window.addEventListener('storage', syncActiveCooperative);
+
+    return () => {
+      window.removeEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+      window.removeEventListener('storage', syncActiveCooperative);
+    };
+  }, []);
 
   useEffect(() => {
     if (!cooperativeId) return;

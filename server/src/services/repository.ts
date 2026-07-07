@@ -12,9 +12,11 @@ import {
   getStateSnapshot,
   getTrustScore,
   getWithdrawal,
+  listCooperatives,
   listAlerts,
   listAuditLog,
   listWithdrawals,
+  recordTreasuryCredit,
   recordContribution,
   recalculateHealthScore,
   releaseWithdrawal,
@@ -90,6 +92,71 @@ export async function getCooperativeData(cooperativeId: string) {
     ...cooperative,
     trustHistory: getTrustScore(cooperativeId).history,
     scoreBreakdown: getTrustScore(cooperativeId).scoreBreakdown,
+  };
+}
+
+export async function listTreasuryCooperativesData() {
+  if (!usingDatabase) return listCooperatives();
+  return prisma.cooperative.findMany({
+    where: { isActive: true },
+    orderBy: { name: "asc" },
+  });
+}
+
+export async function recordTreasuryCreditData(input: {
+  cooperativeId: string;
+  amount: number;
+  nombaTransactionRef: string;
+  source: string;
+}) {
+  if (!usingDatabase) return recordTreasuryCredit(input);
+
+  const existingEvents = await prisma.auditEvent.findMany({
+    where: {
+      cooperativeId: input.cooperativeId,
+      eventType: "treasury_credit",
+    },
+    select: { metadata: true },
+  });
+
+  const alreadyProcessed = existingEvents.some((event) => {
+    const metadata = event.metadata as Record<string, unknown> | null;
+    return metadata?.nombaTransactionRef === input.nombaTransactionRef;
+  });
+
+  const cooperative = await prisma.cooperative.findUnique({
+    where: { id: input.cooperativeId },
+  });
+  if (!cooperative) {
+    throw new Error(`Cooperative ${input.cooperativeId} not found`);
+  }
+
+  if (alreadyProcessed) {
+    return { processed: false, cooperative, reference: input.nombaTransactionRef };
+  }
+
+  const updatedCooperative = await prisma.cooperative.update({
+    where: { id: input.cooperativeId },
+    data: { balance: { increment: input.amount } },
+  });
+
+  await prisma.auditEvent.create({
+    data: {
+      cooperativeId: input.cooperativeId,
+      eventType: "treasury_credit",
+      description: "Treasury credit synced from Nomba polling.",
+      metadata: {
+        amount: input.amount,
+        source: input.source,
+        nombaTransactionRef: input.nombaTransactionRef,
+      },
+    },
+  });
+
+  return {
+    processed: true,
+    cooperative: updatedCooperative,
+    reference: input.nombaTransactionRef,
   };
 }
 

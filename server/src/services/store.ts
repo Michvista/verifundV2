@@ -271,6 +271,10 @@ export function listPendingTreasuryCredits() {
   return state.pendingTreasuryCredits;
 }
 
+export function removePendingTreasuryCredit(creditId: string) {
+  state.pendingTreasuryCredits = state.pendingTreasuryCredits.filter((credit) => credit.id !== creditId);
+}
+
 export function processPendingTreasuryCredits() {
   const processed: Array<{ id: string; cooperativeId: string; nombaTransactionRef: string }> = [];
   state.pendingTreasuryCredits = state.pendingTreasuryCredits.filter((credit) => {

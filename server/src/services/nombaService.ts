@@ -345,11 +345,34 @@ export async function lookupBankAccount(args: { accountNumber: string; bankCode:
 
 let bankListCache: { fetchedAt: number; banks: Array<{ code: string; name: string }> } | null = null;
 export const fallbackBanks = [
-  { code: '058', name: 'Guaranty Trust Bank' },
-  { code: '011', name: 'First Bank of Nigeria' },
-  { code: '057', name: 'Zenith Bank' },
-  { code: '033', name: 'United Bank for Africa' },
   { code: '044', name: 'Access Bank' },
+  { code: 'ALPHA_MORGAN', name: 'Alpha Morgan Bank Limited' },
+  { code: '023', name: 'Citibank Nigeria' },
+  { code: '050', name: 'Ecobank Nigeria' },
+  { code: '070', name: 'Fidelity Bank' },
+  { code: '011', name: 'First Bank of Nigeria' },
+  { code: '214', name: 'First City Monument Bank (FCMB)' },
+  { code: '00103', name: 'Globus Bank' },
+  { code: '058', name: 'Guaranty Trust Bank (GTBank)' },
+  { code: '082', name: 'Keystone Bank' },
+  { code: '060003', name: 'Nova Commercial Bank' },
+  { code: 'OPTIMUS', name: 'Optimus Bank' },
+  { code: '104', name: 'Parallex Bank' },
+  { code: '076', name: 'Polaris Bank' },
+  { code: 'PREMIUM_TRUST', name: 'Premium Trust Bank' },
+  { code: '101', name: 'Providus Bank' },
+  { code: 'SIGNATURE', name: 'Signature Bank' },
+  { code: '221', name: 'Stanbic IBTC Bank' },
+  { code: '068', name: 'Standard Chartered Bank' },
+  { code: '232', name: 'Sterling Bank' },
+  { code: '100', name: 'SunTrust Bank Nigeria' },
+  { code: 'TATUM', name: 'Tatum Bank' },
+  { code: '102', name: 'Titan Trust Bank' },
+  { code: '032', name: 'Union Bank' },
+  { code: '033', name: 'United Bank for Africa (UBA)' },
+  { code: '215', name: 'Unity Bank' },
+  { code: '035', name: 'Wema Bank' },
+  { code: '057', name: 'Zenith Bank' },
 ];
 
 export async function fetchBanks() {
