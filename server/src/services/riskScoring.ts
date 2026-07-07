@@ -1,5 +1,4 @@
 import type { RiskCategory } from '../types';
-import { getDefaultContributionAmount } from './contributionSettings';
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 
@@ -86,7 +85,7 @@ export function scoreWithdrawal(input: WithdrawalRiskInput) {
 
 export function scoreContribution(input: ContributionRiskInput) {
   const amount = Number(input.amount || 0);
-  const expected = Number(input.expectedAmount || getDefaultContributionAmount());
+  const expected = Number(input.expectedAmount || 20000);
   const historyCount = Number(input.historyCount || 0);
   const duplicateBvn = Boolean(input.duplicateBvn);
 

@@ -11,7 +11,6 @@ import type {
   WithdrawalRequest,
   WhistleblowerReport,
 } from '../types';
-import { formatContributionAmount, getDefaultContributionAmount } from './contributionSettings';
 import { deriveHealthScore, scoreContribution, scoreWithdrawal } from './riskScoring';
 import { createTransfer, createVirtualAccount } from './nombaService';
 
@@ -28,13 +27,6 @@ type TrustScoreShape = {
 const state = {
   cooperatives: [] as Cooperative[],
   members: [] as Member[],
-  cooperativeMembers: [] as Array<{
-    id: string;
-    cooperativeId: string;
-    memberId: string;
-    role: 'member' | 'treasurer' | 'executive1' | 'executive2' | 'admin';
-    assignedAt: string;
-  }>,
   contributions: [] as Contribution[],
   withdrawals: [] as WithdrawalRequest[],
   signatures: [] as Array<{ id: string; withdrawalRequestId: string; signedBy: string; role: 'treasurer' | 'executive1' | 'executive2'; signedAt: string }>,
@@ -86,6 +78,10 @@ function getMember(memberId: string): Member | undefined {
   return state.members.find((item) => item.id === memberId);
 }
 
+function getMemberByPhoneNumber(phoneNumber: string): Member | undefined {
+  return state.members.find((item) => item.phoneNumber === phoneNumber);
+}
+
 function toDashboard(cooperativeId: string): DashboardShape {
   const cooperative = getCooperative(cooperativeId);
   if (!cooperative) {
@@ -96,7 +92,7 @@ function toDashboard(cooperativeId: string): DashboardShape {
     cooperativeId: cooperative.id,
     healthScore: cooperative.healthScore,
     balance: cooperative.balance,
-    nextContribution: formatContributionAmount(cooperative.contributionAmount || getDefaultContributionAmount()),
+    nextContribution: 'No active contribution scheduled',
     tenure: '0 Months Active',
     loanStatus: cooperative.balance > 0 ? 'Eligible' : 'Unavailable',
   };
@@ -402,7 +398,7 @@ export async function releaseWithdrawal(withdrawalId: string) {
     id: randomUUID(),
     cooperativeId: withdrawal.cooperativeId,
     eventType: 'withdrawal_released',
-    description: 'Withdrawal released through the Nomba transfer service.',
+    description: 'Withdrawal released through the mocked Nomba transfer service.',
     metadata: { withdrawalId, nombaTransferRef: withdrawal.nombaTransferRef },
     createdAt: now(),
   });
@@ -410,16 +406,26 @@ export async function releaseWithdrawal(withdrawalId: string) {
   return { withdrawal, transfer };
 }
 
-export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; bvnHash: string; role?: Member['role'] }) {
-  const existing = state.members.find((member) => member.bvnHash === input.bvnHash);
+export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; passwordHash: string; bvnHash: string; role?: Member['role'] }) {
+  const existingPhoneNumber = state.members.find((member) => member.phoneNumber === input.phoneNumber);
+  if (existingPhoneNumber) {
+    throw new Error('PHONE_NUMBER_EXISTS');
+  }
+
+  const existingBvn = state.members.find((member) => member.bvnHash === input.bvnHash);
+  if (existingBvn) {
+    throw new Error('BVN_EXISTS');
+  }
+
   const member: Member = {
     id: `mem_${Date.now()}`,
     firstName: input.firstName,
     lastName: input.lastName,
     phoneNumber: input.phoneNumber,
+    passwordHash: input.passwordHash,
     bvnHash: input.bvnHash,
-    bvnVerified: !existing,
-    bvnVerifiedAt: !existing ? now() : undefined,
+    bvnVerified: true,
+    bvnVerifiedAt: now(),
     role: input.role || 'member',
     isActive: true,
   };
@@ -427,17 +433,12 @@ export function createMember(input: { firstName: string; lastName: string; phone
   return member;
 }
 
-export async function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string; contributionAmount?: number; createdByMemberId?: string }) {
-  // accountRef must be 16–64 chars per Nomba's requirements.
-  // Pad with a timestamp suffix if the registration number is short.
-  const rawRef = `va_${input.registrationNumber}`;
-  const accountRef = rawRef.length >= 16 ? rawRef : `${rawRef}_${Date.now()}`.slice(0, 64);
-
+export async function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string }) {
   const virtualAccount = await createVirtualAccount({
     accountName: input.name,
-    accountRef,
+    accountRef: `va_${input.registrationNumber}`,
     bvn: input.bvn,
-    // No expectedAmount — accept any transfer amount
+    expectedAmount: 20000,
   });
 
   const cooperative: Cooperative = {
@@ -446,8 +447,6 @@ export async function createCooperative(input: { name: string; registrationNumbe
     registrationNumber: input.registrationNumber,
     state: input.stateName,
     cooperativeType: input.cooperativeType,
-    createdByMemberId: input.createdByMemberId,
-    contributionAmount: Number(input.contributionAmount || getDefaultContributionAmount()),
     nombaVirtualAccountRef: virtualAccount.accountRef,
     nombaAccountId: virtualAccount.accountId,
     nombaVirtualAccountNumber: virtualAccount.accountNumber,
@@ -460,48 +459,6 @@ export async function createCooperative(input: { name: string; registrationNumbe
 
   state.cooperatives.unshift(cooperative);
   return { cooperative, virtualAccount };
-}
-
-export function assignMemberToCooperative(input: {
-  cooperativeId: string;
-  memberId: string;
-  role: 'member' | 'treasurer' | 'executive1' | 'executive2' | 'admin';
-}) {
-  const cooperative = getCooperative(input.cooperativeId);
-  const member = getMember(input.memberId);
-  if (!cooperative) throw new Error(`Cooperative ${input.cooperativeId} not found`);
-  if (!member) throw new Error(`Member ${input.memberId} not found`);
-
-  const linkExists = state.cooperativeMembers.some((link) => link.cooperativeId === input.cooperativeId && link.memberId === input.memberId);
-  if (linkExists) {
-    return { cooperative, member, assigned: false };
-  }
-
-  state.cooperativeMembers.unshift({
-    id: randomUUID(),
-    cooperativeId: input.cooperativeId,
-    memberId: input.memberId,
-    role: input.role,
-    assignedAt: now(),
-  });
-  cooperative.memberCount = state.cooperativeMembers.filter((item) => item.cooperativeId === input.cooperativeId).length;
-  return { cooperative, member, assigned: true };
-}
-
-export function listMemberCooperatives(memberId: string) {
-  const memberships = state.cooperativeMembers;
-  return state.cooperatives
-    .filter((cooperative) => cooperative.createdByMemberId === memberId || memberships.some((membership) => membership.cooperativeId === cooperative.id && membership.memberId === memberId))
-    .map((cooperative) => {
-      const membership = memberships.find((item) => item.cooperativeId === cooperative.id && item.memberId === memberId);
-      return {
-        id: cooperative.id,
-        name: cooperative.name,
-        registrationNumber: cooperative.registrationNumber,
-        role: membership?.role || (cooperative.createdByMemberId === memberId ? 'admin' : 'member'),
-        createdByMemberId: cooperative.createdByMemberId,
-      };
-    });
 }
 
 export function createWebhookAudit(input: { cooperativeId: string; eventType: string; description: string; metadata?: Record<string, unknown> }) {
@@ -566,6 +523,14 @@ export function getMemberOrThrow(memberId: string) {
   const member = getMember(memberId);
   if (!member) {
     throw new Error(`Member ${memberId} not found`);
+  }
+  return member;
+}
+
+export function getMemberByPhoneNumberOrThrow(phoneNumber: string) {
+  const member = getMemberByPhoneNumber(phoneNumber);
+  if (!member) {
+    throw new Error(`Member with phone number ${phoneNumber} not found`);
   }
   return member;
 }

@@ -1,24 +1,30 @@
 import { useState } from 'react';
-import { submitWhistleblowerReport } from '../services/api';
+import { submitWhistleblowerReport, type WhistleblowerResponse } from '../services/api';
+
+const MIN_REPORT_LENGTH = 20;
 
 export function WhistleblowerPage() {
   const [report, setReport] = useState('');
   const [details, setDetails] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [reportId, setReportId] = useState<string | null>(null);
+  const [submission, setSubmission] = useState<WhistleblowerResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const trimmedReport = report.trim();
+  const trimmedDetails = details.trim();
+  const canSubmit = trimmedReport.length >= MIN_REPORT_LENGTH;
+
   async function handleSubmit() {
-    if (!report.trim()) return;
+    if (!canSubmit) return;
     setLoading(true);
     setError(null);
     try {
       const result = await submitWhistleblowerReport({
-        report: report.trim(),
-        supportingDetails: details.trim() || undefined,
+        report: trimmedReport,
+        supportingDetails: trimmedDetails || undefined,
       });
-      setReportId(result.whistleblowerReportId);
+      setSubmission(result);
       setSubmitted(true);
     } catch (err) {
       setError((err as Error).message || 'Submission failed. Please try again.');
@@ -37,16 +43,28 @@ export function WhistleblowerPage() {
             Your submission has been routed into the fraud triage queue. Reporter identity is
             masked by default.
           </p>
-          {reportId && (
+          {submission && (
             <div className="success-block" style={{ marginTop: 18 }}>
               <div className="success-block__row">
-                <span>Reference ID</span>
-                <strong style={{ fontFamily: 'monospace' }}>{reportId}</strong>
+                <span>Report ID</span>
+                <strong style={{ fontFamily: 'monospace' }}>{submission.report.id}</strong>
+              </div>
+              <div className="success-block__row">
+                <span>Alert ID</span>
+                <strong style={{ fontFamily: 'monospace' }}>{submission.alert.id}</strong>
+              </div>
+              <div className="success-block__row">
+                <span>Status</span>
+                <strong>{submission.report.status}</strong>
+              </div>
+              <div className="success-block__row">
+                <span>Severity</span>
+                <strong>{submission.alert.severity}</strong>
               </div>
             </div>
           )}
           <div className="notice" style={{ marginTop: 18 }}>
-            Keep your Reference ID safe. You may use it to follow up with a regulator if needed.
+            Keep your Report ID safe. You may use it to follow up with a regulator if needed.
           </div>
           <button
             className="button button--ghost button--full"
@@ -55,7 +73,7 @@ export function WhistleblowerPage() {
               setSubmitted(false);
               setReport('');
               setDetails('');
-              setReportId(null);
+              setSubmission(null);
             }}
           >
             Submit another report
@@ -84,6 +102,13 @@ export function WhistleblowerPage() {
           />
         </label>
 
+        {report && !canSubmit && (
+          <div className="notice" style={{ marginTop: 12 }}>
+            Add a little more detail before submitting. Reports need at least {MIN_REPORT_LENGTH}{' '}
+            characters.
+          </div>
+        )}
+
         <label className="input-block">
           <span>Supporting details (optional)</span>
           <input
@@ -102,7 +127,7 @@ export function WhistleblowerPage() {
         <button
           className="button button--primary button--full"
           style={{ marginTop: 20 }}
-          disabled={!report.trim() || loading}
+          disabled={!canSubmit || loading}
           onClick={handleSubmit}
         >
           {loading ? 'Sending report...' : 'Send Report Anonymously'}

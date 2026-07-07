@@ -35,6 +35,7 @@ It includes:
 - `.env.example` required environment variables
 - `render.yaml` Render deployment config
 - `vercel.json` Vercel deployment config
+- `docs/production-readiness.md` production deployment checklist
 
 ## Local Setup
 
@@ -85,7 +86,7 @@ Required values for a live Postgres deployment:
 - `NOMBA_CLIENT_SECRET`
 - `NOMBA_ACCOUNT_ID`
 - `NOMBA_WEBHOOK_SECRET`
-- `NOMBA_ALLOW_MOCK_FALLBACK` for local testing
+- `NOMBA_ALLOW_MOCK_FALLBACK`
 - `VITE_API_BASE_URL`
 - `VITE_WS_URL`
 
@@ -93,9 +94,11 @@ Suggested local values:
 
 - `VITE_API_BASE_URL=http://localhost:5050/api`
 - `VITE_WS_URL=ws://localhost:5050/ws`
-- `CORS_ORIGIN=http://localhost:5173`
+- `CORS_ORIGIN=http://localhost:5174`
 
 If you are just running the hackathon build locally, the backend can start without `DATABASE_URL` and will serve live in-memory state instead of seeded demo data.
+
+In production, the API validates required configuration before listening. It will refuse to boot if Postgres, JWT, CORS, or live Nomba configuration is incomplete.
 
 ## Backend API
 
@@ -148,7 +151,10 @@ Main API areas:
 - `NOMBA_CLIENT_ID`
 - `NOMBA_CLIENT_SECRET`
 - `NOMBA_ACCOUNT_ID`
+- `NOMBA_SUB_ACCOUNT_ID` if required by your account setup
 - `NOMBA_WEBHOOK_SECRET`
+- `NOMBA_ALLOW_MOCK_FALLBACK=false`
+- `NOMBA_ENV=production`
 
 4. Use this build command:
 
@@ -163,6 +169,8 @@ npm run api
 ```
 
 6. Set `CORS_ORIGIN` to your deployed Vercel frontend URL.
+
+7. Confirm `/api/health` reports `"databaseMode":"postgres"` and `"nombaMode":"live"`.
 
 ### Vercel frontend
 

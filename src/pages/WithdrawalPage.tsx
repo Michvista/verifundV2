@@ -2,15 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Metric } from '../components/Metric';
 import { Modal } from '../components/Modal';
 import { StatusPill } from '../components/StatusPill';
+import { useAuth } from '../auth/AuthContext';
+import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
 import {
   getBanks,
   getQueue,
   getQueueItem,
+  previewWithdrawalRisk,
   releaseWithdrawal,
   requestWithdrawal,
   signWithdrawal,
   verifyAccount,
   type QueueItem,
+  type WithdrawalRiskPreviewResponse,
 } from '../services/api';
 
 type Bank = { code: string; name: string };
@@ -23,15 +27,6 @@ const fallbackBanks: Bank[] = [
   { code: '044', name: 'Access Bank' },
 ];
 
-function loadUser() {
-  try {
-    const raw = localStorage.getItem('verifund_user');
-    return raw ? (JSON.parse(raw) as { id: string; role: string }) : null;
-  } catch {
-    return null;
-  }
-}
-
 function loadCooperativeId() {
   return localStorage.getItem('verifund_cooperative_id') || '';
 }
@@ -42,33 +37,78 @@ function formatNaira(value: number | string) {
   return `₦${n.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
 }
 
+const requestWithdrawalRoles = ['admin', 'treasurer'];
+const signWithdrawalRoles = ['admin', 'treasurer', 'executive1', 'executive2'];
+const releaseWithdrawalRoles = ['admin', 'treasurer'];
+
 export function WithdrawalPage() {
-  const user = loadUser();
-  const cooperativeId = loadCooperativeId();
+  const { user } = useAuth();
+  const [cooperativeId, setCooperativeId] = useState(loadCooperativeId);
   const [amount, setAmount] = useState('');
   const [accountNumber, setAccountNumber] = useState('');
   const [bankCode, setBankCode] = useState('');
   const [purpose, setPurpose] = useState('');
   const [banks, setBanks] = useState<Bank[]>([]);
+  const [bankNotice, setBankNotice] = useState<string | null>(null);
   const [verifiedName, setVerifiedName] = useState<string | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+  const [queueError, setQueueError] = useState<string | null>(null);
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
   const [selectedQueueItem, setSelectedQueueItem] = useState<QueueItem | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [riskPreview, setRiskPreview] = useState<WithdrawalRiskPreviewResponse | null>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState<string | null>(null);
+
+  async function refreshQueue() {
+    setQueueLoading(true);
+    setQueueError(null);
+    try {
+      const res = await getQueue();
+      setQueue(res.queue);
+    } catch (err) {
+      setQueue([]);
+      setQueueError(err instanceof Error ? err.message : 'Withdrawal queue could not be loaded.');
+    } finally {
+      setQueueLoading(false);
+    }
+  }
 
   useEffect(() => {
     void getBanks()
-      .then((res) => setBanks(res.banks.length ? res.banks : fallbackBanks))
-      .catch(() => setBanks(fallbackBanks));
+      .then((res) => {
+        setBanks(res.banks.length ? res.banks : fallbackBanks);
+        setBankNotice(res.mode === 'live' ? null : `Bank list is using ${res.mode} mode.`);
+      })
+      .catch((err) => {
+        setBanks(fallbackBanks);
+        setBankNotice(err instanceof Error ? err.message : 'Using fallback bank list.');
+      });
   }, []);
 
   useEffect(() => {
-    void getQueue().then((res) => setQueue(res.queue)).catch(() => setQueue([]));
+    void refreshQueue();
+  }, []);
+
+  useEffect(() => {
+    function syncActiveCooperative() {
+      setCooperativeId(loadCooperativeId());
+    }
+
+    window.addEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+    window.addEventListener('storage', syncActiveCooperative);
+
+    return () => {
+      window.removeEventListener(ACTIVE_COOPERATIVE_EVENT, syncActiveCooperative);
+      window.removeEventListener('storage', syncActiveCooperative);
+    };
   }, []);
 
   useEffect(() => {
@@ -86,25 +126,103 @@ export function WithdrawalPage() {
 
   useEffect(() => {
     setVerifiedName(null);
+    setVerifyError(null);
     if (accountNumber.length === 10 && bankCode) {
       setVerifying(true);
       verifyAccount(accountNumber, bankCode)
-        .then((res) => setVerifiedName(res.verified ? (res.accountName ?? 'Verified') : null))
-        .catch(() => setVerifiedName(null))
+        .then((res) => {
+          setVerifiedName(res.verified ? (res.accountName ?? 'Verified') : null);
+          setVerifyError(res.verified ? null : res.error ?? 'Account could not be verified.');
+        })
+        .catch((err) => {
+          setVerifiedName(null);
+          setVerifyError(err instanceof Error ? err.message : 'Account verification failed.');
+        })
         .finally(() => setVerifying(false));
     }
   }, [accountNumber, bankCode]);
 
   const amountValue = Number(amount.replace(/[^0-9]/g, '') || 0);
+  const trimmedPurpose = purpose.trim();
+  const userRole = user?.role ?? '';
+  const canRequestWithdrawal = requestWithdrawalRoles.includes(userRole);
+  const canSignWithdrawal = signWithdrawalRoles.includes(userRole);
+  const canReleaseWithdrawal = releaseWithdrawalRoles.includes(userRole);
+  const canSubmitWithdrawal = Boolean(
+    amountValue &&
+      accountNumber.length === 10 &&
+      bankCode &&
+      trimmedPurpose &&
+      cooperativeId &&
+      user &&
+      canRequestWithdrawal &&
+      verifiedName &&
+      !verifying,
+  );
+  const average30d = Math.max(amountValue / 2, 1);
+
+  useEffect(() => {
+    if (!amountValue) {
+      setRiskPreview(null);
+      setRiskError(null);
+      setRiskLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setRiskLoading(true);
+    setRiskError(null);
+
+    const timeout = window.setTimeout(() => {
+      void previewWithdrawalRisk({
+        amount: amountValue,
+        average30d,
+        signatureCount: selectedQueueItem?.signatureCount ?? 0,
+        destinationVerified: Boolean(verifiedName),
+        bvnDuplicate: false,
+        purpose: trimmedPurpose,
+      })
+        .then((preview) => {
+          if (!cancelled) setRiskPreview(preview);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setRiskPreview(null);
+            setRiskError(err instanceof Error ? err.message : 'Risk preview could not be calculated.');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setRiskLoading(false);
+        });
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [amountValue, average30d, trimmedPurpose, verifiedName, selectedQueueItem?.signatureCount]);
+
   const riskLevel = useMemo(() => {
-    if (amountValue === 0) return { label: 'Idle', tone: 'neutral' as const, score: 0 };
-    if (amountValue > 1_000_000) return { label: 'High', tone: 'danger' as const, score: 81 };
-    if (amountValue > 600_000) return { label: 'Medium', tone: 'warn' as const, score: 56 };
-    return { label: 'Low', tone: 'success' as const, score: 22 };
-  }, [amountValue]);
+    if (!amountValue) return { label: 'Idle', tone: 'neutral' as const, score: 0 };
+    if (!riskPreview) return { label: riskLoading ? 'Loading' : 'Unknown', tone: 'neutral' as const, score: 0 };
+
+    const score = Math.round(riskPreview.riskScore * 100);
+    const tone =
+      riskPreview.riskCategory === 'high'
+        ? ('danger' as const)
+        : riskPreview.riskCategory === 'medium'
+          ? ('warn' as const)
+          : ('success' as const);
+
+    return {
+      label: riskPreview.riskCategory,
+      tone,
+      score,
+    };
+  }, [amountValue, riskLoading, riskPreview]);
 
   async function handleInitialize() {
-    if (!amountValue || !accountNumber || !bankCode || !purpose || !cooperativeId || !user) return;
+    if (!canSubmitWithdrawal || !user) return;
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -112,13 +230,9 @@ export function WithdrawalPage() {
         amount: amountValue,
         destinationAccount: accountNumber,
         destinationBankCode: bankCode,
-        purpose,
+        purpose: trimmedPurpose,
         cooperativeId,
         requestedBy: user.id,
-        average30d: Math.max(amountValue / 2, 1),
-        signatureCount: 0,
-        destinationVerified: Boolean(verifiedName),
-        accountName: verifiedName,
       });
 
       const newItem: QueueItem = {
@@ -128,11 +242,11 @@ export function WithdrawalPage() {
         amount: amountValue,
         destinationAccount: accountNumber,
         destinationBankCode: bankCode,
-        purpose,
+        purpose: trimmedPurpose,
         riskScore: result.riskScore,
         status: result.status,
         createdAt: new Date().toISOString(),
-        average30d: Math.max(amountValue / 2, 1),
+        average30d,
         signatureCount: 0,
         explanations: result.reasons,
         ref: `#${result.withdrawalId.toUpperCase().slice(0, 8)}`,
@@ -141,7 +255,7 @@ export function WithdrawalPage() {
         sigs: '□ □ □',
       };
 
-      setQueue((prev) => [newItem, ...prev]);
+      setQueue((prev) => [newItem, ...prev.filter((item) => item.id !== newItem.id)]);
       setSelectedQueueId(result.withdrawalId);
       setSelectedQueueItem(newItem);
       setAmount('');
@@ -157,17 +271,18 @@ export function WithdrawalPage() {
   }
 
   async function handleSign() {
-    if (!selectedQueueId || !user) return;
+    if (!selectedQueueId || !user || !canSignWithdrawal) return;
     setActionLoading(true);
     setActionMsg(null);
     try {
-      const res = await signWithdrawal(selectedQueueId, { memberId: user.id, role: user.role });
+      const res = await signWithdrawal(selectedQueueId, {});
       setActionMsg(`Signature recorded. Total: ${res.signatureCount}/3`);
       const updated = await getQueueItem(selectedQueueId).catch(() => null);
       if (updated) {
         setSelectedQueueItem(updated);
         setQueue((prev) => prev.map((item) => (item.id === selectedQueueId ? updated : item)));
       }
+      await refreshQueue();
     } catch (err) {
       setActionMsg((err as Error).message);
     } finally {
@@ -176,19 +291,16 @@ export function WithdrawalPage() {
   }
 
   async function handleRelease() {
-    if (!selectedQueueId || !selectedQueueItem) return;
+    if (!selectedQueueId || !selectedQueueItem || !canReleaseWithdrawal) return;
     setActionLoading(true);
     setActionMsg(null);
     try {
-      const res = await releaseWithdrawal(selectedQueueId, {
-        destinationAccount: selectedQueueItem.destinationAccount,
-        bankCode: selectedQueueItem.destinationBankCode,
-        amount: Number(String(selectedQueueItem.amount).replace(/[^0-9]/g, '')),
-        narration: selectedQueueItem.purpose ?? 'VeriFund cooperative disbursement',
-        accountName: selectedQueueItem.recipient,
-      });
+      const res = await releaseWithdrawal(selectedQueueId);
       setActionMsg(`Transfer released. Ref: ${res.transferRef} (${res.provider})`);
-      setQueue((prev) => prev.map((item) => (item.id === selectedQueueId ? { ...item, status: 'released' } : item)));
+      const releasedItem = { ...selectedQueueItem, status: res.status };
+      setSelectedQueueItem(releasedItem);
+      setQueue((prev) => prev.map((item) => (item.id === selectedQueueId ? releasedItem : item)));
+      await refreshQueue();
     } catch (err) {
       setActionMsg((err as Error).message);
     } finally {
@@ -196,7 +308,11 @@ export function WithdrawalPage() {
     }
   }
 
-  const canRelease = Boolean(selectedQueueItem && (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved'));
+  const canRelease = Boolean(
+    canReleaseWithdrawal &&
+      selectedQueueItem &&
+      (selectedQueueItem.signatureCount >= 3 || selectedQueueItem.status === 'approved'),
+  );
 
   if (!cooperativeId || !user) {
     return <section className="note-panel page-reveal">Log in and select a cooperative before using the withdrawal flow.</section>;
@@ -216,6 +332,14 @@ export function WithdrawalPage() {
       <div className="withdrawal-grid">
         <section className="withdrawal-form page-reveal">
           <div className="eyebrow">Transaction Details</div>
+
+          {!canRequestWithdrawal && (
+            <div className="callout" style={{ marginBottom: 12 }}>
+              Your role can review and sign withdrawal requests, but only admins and treasurers can create them.
+            </div>
+          )}
+
+          {bankNotice && <div className="notice" style={{ marginBottom: 12 }}>{bankNotice}</div>}
 
           <label className="input-block">
             <span>Disbursement Amount (NGN)</span>
@@ -264,6 +388,7 @@ export function WithdrawalPage() {
               </span>
             </div>
           )}
+          {verifyError && <div className="callout" style={{ marginTop: 8 }}>{verifyError}</div>}
 
           <label className="input-block">
             <span>Purpose of Disbursement</span>
@@ -280,7 +405,7 @@ export function WithdrawalPage() {
           <button
             className="button button--primary button--full"
             style={{ marginTop: 16 }}
-            disabled={!amountValue || !accountNumber || !bankCode || !purpose || submitting}
+            disabled={!canSubmitWithdrawal || submitting}
             onClick={() => void handleInitialize()}
           >
             {submitting ? 'Submitting...' : 'Initialize Signing Sequence'}
@@ -338,13 +463,23 @@ export function WithdrawalPage() {
               )}
 
               <div style={{ display: 'grid', gap: 10, marginTop: 16 }}>
-                <button className="button button--ghost button--full" disabled={actionLoading} onClick={handleSign}>
+                <button
+                  className="button button--ghost button--full"
+                  disabled={!canSignWithdrawal || actionLoading}
+                  onClick={handleSign}
+                >
                   {actionLoading ? 'Processing...' : 'Sign'}
                 </button>
                 <button className="button button--primary button--full" disabled={!canRelease || actionLoading} onClick={handleRelease}>
                   {actionLoading ? 'Releasing...' : 'Release Nomba Transfer'}
                 </button>
               </div>
+
+              {!canReleaseWithdrawal && (
+                <div className="callout" style={{ marginTop: 12 }}>
+                  Release is restricted to admins and treasurers after quorum is reached.
+                </div>
+              )}
             </>
           ) : (
             <>
@@ -384,17 +519,31 @@ export function WithdrawalPage() {
               </div>
               <div className="risk-panel__footer">
                 <StatusPill tone={riskLevel.tone}>{riskLevel.label.toUpperCase()}</StatusPill>
-                <span>Risk score {riskLevel.score}/100</span>
+                <span>{riskLoading ? 'Calculating backend risk...' : `Risk score ${riskLevel.score}/100`}</span>
               </div>
+              {riskError && <div className="callout" style={{ marginTop: 12 }}>{riskError}</div>}
+              {riskPreview && (
+                <div className="signal-list" style={{ marginTop: 12 }}>
+                  {(riskPreview.reasons.length ? riskPreview.reasons : riskPreview.explanation).map((item) => (
+                    <div key={item} className="signal-list__item">
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="risk-panel__signals">
-              <Metric label="30-day average" value={formatNaira(Math.max(amountValue / 2, 1))} />
+              <Metric label="30-day average" value={formatNaira(average30d)} />
               <Metric label="Requested amount" value={formatNaira(amountValue || 0)} />
               <Metric
                 label="Deviation"
-                value={amountValue ? `${Math.round((amountValue / Math.max(amountValue / 2, 1) - 1) * 100)}%` : '0%'}
+                value={riskPreview ? `${Math.round((riskPreview.signals.ratio - 1) * 100)}%` : '0%'}
               />
               <Metric label="Destination" value={verifiedName ?? 'Unverified'} />
+              <Metric
+                label="Approval Count"
+                value={`${riskPreview?.signals.signatureCount ?? selectedQueueItem?.signatureCount ?? 0}/3`}
+              />
             </div>
           </div>
         </div>
@@ -404,16 +553,29 @@ export function WithdrawalPage() {
         <div className="section-card__header">
           <div>
             <h2>Pending Queue</h2>
-            <p>Queue status: {queue.length} active entries</p>
+            <p>
+              {queueLoading
+                ? 'Loading withdrawal queue...'
+                : queueError
+                  ? 'Queue could not be loaded'
+                  : `Queue status: ${queue.length} active entries`}
+            </p>
           </div>
           <div className="alert-actions">
-            <button className="button button--ghost" onClick={() => void getQueue().then((r) => setQueue(r.queue)).catch(() => setQueue([]))}>
-              Refresh
+            <button className="button button--ghost" disabled={queueLoading} onClick={() => void refreshQueue()}>
+              {queueLoading ? 'Refreshing...' : 'Refresh'}
             </button>
           </div>
         </div>
 
-        {queue.length ? (
+        {queueError ? (
+          <div className="callout">
+            {queueError}
+            <button className="button button--ghost" style={{ marginTop: 12 }} onClick={() => void refreshQueue()}>
+              Retry Queue
+            </button>
+          </div>
+        ) : queue.length ? (
           <div className="table">
             <div className="table__head" style={{ gridTemplateColumns: '1fr 1fr 1.2fr 1fr 0.7fr 1fr' }}>
               <span>Ref ID</span>
@@ -451,7 +613,9 @@ export function WithdrawalPage() {
             })}
           </div>
         ) : (
-          <p className="empty-state">No withdrawals have been requested yet.</p>
+          <p className="empty-state">
+            {queueLoading ? 'Loading withdrawal requests...' : 'No withdrawals have been requested yet.'}
+          </p>
         )}
       </section>
 
@@ -464,7 +628,7 @@ export function WithdrawalPage() {
         }}
         footer={
           <div className="alert-actions">
-            <button className="button button--ghost" disabled={actionLoading} onClick={handleSign}>
+            <button className="button button--ghost" disabled={!canSignWithdrawal || actionLoading} onClick={handleSign}>
               {actionLoading ? '...' : 'Sign'}
             </button>
             <button className="button button--primary" disabled={!canRelease || actionLoading} onClick={handleRelease}>

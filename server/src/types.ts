@@ -10,6 +10,7 @@ export interface Member {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  passwordHash: string;
   bvnHash: string;
   bvnVerified: boolean;
   bvnVerifiedAt?: string;
@@ -23,8 +24,6 @@ export interface Cooperative {
   registrationNumber: string;
   state: string;
   cooperativeType: CooperativeType;
-  createdByMemberId?: string;
-  contributionAmount: number;
   nombaVirtualAccountRef: string;
   nombaAccountId: string;
   nombaVirtualAccountNumber?: string;
@@ -126,12 +125,4 @@ export interface ApiDashboard {
   activityFeed: DashboardFeedItem[];
   contributionTrend: number[];
   contributionHistory: DashboardContribution[];
-}
-
-export interface CooperativeAccess {
-  id: string;
-  name: string;
-  registrationNumber: string;
-  role: string;
-  createdByMemberId?: string | null;
 }

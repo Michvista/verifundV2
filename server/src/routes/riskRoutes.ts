@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { scoreContribution, scoreWithdrawal } from '../services/riskScoring';
-import { getDefaultContributionAmount } from '../services/contributionSettings';
 
 export const riskRoutes = Router();
 
@@ -18,10 +17,6 @@ riskRoutes.get('/:cooperativeId', (req, res) => {
     riskScore: withdrawalPreview.riskScore,
     riskCategory: withdrawalPreview.riskCategory,
     reasons: withdrawalPreview.reasons,
-    contributionSignal: scoreContribution({
-      amount: getDefaultContributionAmount(),
-      expectedAmount: getDefaultContributionAmount(),
-      historyCount: 4,
-    }),
+    contributionSignal: scoreContribution({ amount: 20000, expectedAmount: 20000, historyCount: 4 }),
   });
 });

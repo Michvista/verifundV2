@@ -1,36 +1,26 @@
 import { useState } from 'react';
 import { StatusPill } from '../components/StatusPill';
-
-type LookupResult = {
-  id: string;
-  name: string;
-  state: string;
-  registrationNumber: string;
-  memberCount: number;
-  healthScore: number;
-  isActive: boolean;
-};
-
-const baseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) || 'http://localhost:5050/api';
+import { lookupCooperative, type CooperativeResponse } from '../services/api';
 
 export function PublicLookupPage() {
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<LookupResult | null>(null);
+  const [result, setResult] = useState<CooperativeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lastLookup, setLastLookup] = useState<string | null>(null);
 
   async function handleLookup() {
-    if (!query.trim()) return;
+    const cooperativeId = query.trim();
+    if (!cooperativeId) return;
+
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const res = await fetch(`${baseUrl}/cooperatives/${encodeURIComponent(query.trim())}`);
-      if (!res.ok) throw new Error(`Cooperative not found (${res.status})`);
-      const data = await res.json();
-      setResult(data);
+      setResult(await lookupCooperative(cooperativeId));
+      setLastLookup(cooperativeId);
     } catch (err) {
-      setError((err as Error).message);
+      setError(err instanceof Error ? err.message : 'Cooperative could not be loaded.');
     } finally {
       setLoading(false);
     }
@@ -45,11 +35,11 @@ export function PublicLookupPage() {
         <div className="eyebrow">Public Trust Registry</div>
         <h2>Search cooperative ID</h2>
         <p style={{ marginTop: 8, color: 'var(--muted)', fontSize: 14 }}>
-          Enter a real cooperative registration ID to inspect its trust profile.
+          Enter a real cooperative ID to inspect its public trust profile.
         </p>
 
         <label className="input-block">
-          <span>Cooperative ID or Registration Number</span>
+          <span>Cooperative ID</span>
           <input
             placeholder="Enter cooperative ID"
             value={query}
@@ -61,6 +51,12 @@ export function PublicLookupPage() {
         {error && (
           <div className="callout" style={{ marginTop: 12 }}>
             {error}
+          </div>
+        )}
+
+        {result && (
+          <div className="notice" style={{ marginTop: 12 }}>
+            Loaded public profile for <strong>{lastLookup}</strong>.
           </div>
         )}
 
@@ -118,7 +114,7 @@ export function PublicLookupPage() {
       ) : (
         <section className="lookup-result page-reveal">
           <p className="empty-state">
-            No cooperative selected yet. Use a real registration ID to load the public profile.
+            No cooperative selected yet. Use a real cooperative ID to load the public profile.
           </p>
         </section>
       )}

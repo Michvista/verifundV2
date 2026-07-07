@@ -8,11 +8,12 @@ import type {
   WhistleblowerReport,
   ApiDashboard,
 } from '../types';
-import { formatContributionAmount } from '../services/contributionSettings';
+
+const demoPasswordHash = '$2a$10$t6iQGUQMzwoqNlE.gAn/..m/HGKGkpmqOi73ORWh3vUvehxX6qOhG';
 
 export const seedDashboard: ApiDashboard = {
   balance: 482000.5,
-  nextContribution: formatContributionAmount(10000),
+  nextContribution: 'Jan 15, ₦20,000',
   tenure: '14 Months Active',
   trustScore: 92,
   loanStatus: 'Eligible',
@@ -24,10 +25,10 @@ export const seedDashboard: ApiDashboard = {
   ],
   contributionTrend: [18, 21, 19, 24, 26, 23, 29, 35, 40, 44, 49, 53],
   contributionHistory: [
-    { id: 'txn-9921-xf', date: '2023-12-15', amount: 10000, status: 'confirmed', reference: 'TXN-9921-XF' },
-    { id: 'txn-8742-lk', date: '2023-11-15', amount: 10000, status: 'confirmed', reference: 'TXN-8742-LK' },
-    { id: 'txn-4410-pp', date: '2023-10-15', amount: 10000, status: 'archived', reference: 'TXN-4410-PP' },
-    { id: 'txn-3291-zz', date: '2023-09-15', amount: 15000, status: 'confirmed', reference: 'TXN-3291-ZZ' },
+    { id: 'txn-9921-xf', date: '2023-12-15', amount: 20000, status: 'confirmed', reference: 'TXN-9921-XF' },
+    { id: 'txn-8742-lk', date: '2023-11-15', amount: 20000, status: 'confirmed', reference: 'TXN-8742-LK' },
+    { id: 'txn-4410-pp', date: '2023-10-15', amount: 20000, status: 'archived', reference: 'TXN-4410-PP' },
+    { id: 'txn-3291-zz', date: '2023-09-15', amount: 25000, status: 'confirmed', reference: 'TXN-3291-ZZ' },
   ],
 };
 
@@ -37,7 +38,6 @@ export const seedCooperative: Cooperative = {
   registrationNumber: '2024-X99',
   state: 'Lagos',
   cooperativeType: 'thrift',
-  contributionAmount: 10000,
   nombaVirtualAccountRef: 'VA-OF-2049',
   nombaAccountId: 'ACCT-4491',
   healthScore: 92,
@@ -53,6 +53,7 @@ export const seedMembers: Member[] = [
     firstName: 'Amina',
     lastName: 'Okafor',
     phoneNumber: '+2348000000001',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_001',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:00:00.000Z').toISOString(),
@@ -64,6 +65,7 @@ export const seedMembers: Member[] = [
     firstName: 'Bola',
     lastName: 'Adewale',
     phoneNumber: '+2348000000002',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_002',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:05:00.000Z').toISOString(),
@@ -75,6 +77,7 @@ export const seedMembers: Member[] = [
     firstName: 'Chika',
     lastName: 'Nwosu',
     phoneNumber: '+2348000000003',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_003',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:10:00.000Z').toISOString(),
@@ -86,6 +89,7 @@ export const seedMembers: Member[] = [
     firstName: 'Regina',
     lastName: 'Ojo',
     phoneNumber: '+2348000000004',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_admin',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:20:00.000Z').toISOString(),
@@ -97,6 +101,7 @@ export const seedMembers: Member[] = [
     firstName: 'Ifeanyi',
     lastName: 'Okoro',
     phoneNumber: '+2348000000005',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_regulator',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:25:00.000Z').toISOString(),
