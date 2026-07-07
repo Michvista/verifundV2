@@ -7,6 +7,7 @@ import {
   getCooperativeOverview,
   getDashboard,
   getFirstCooperativeId,
+  getMemberByPhoneNumberOrThrow,
   getMemberOrThrow,
   getStateSnapshot,
   getTrustScore,
@@ -150,6 +151,7 @@ export async function registerMember(input: {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  passwordHash: string;
   bvnHash: string;
   role?: "member" | "treasurer" | "executive1" | "executive2" | "admin" | "regulator";
 }) {
@@ -172,9 +174,18 @@ export async function registerMember(input: {
     };
   }
 
-  const existing = await prisma.member.findMany({
-    where: { bvnHash: input.bvnHash },
+  const existingMember = await prisma.member.findFirst({
+    where: {
+      OR: [{ phoneNumber: input.phoneNumber }, { bvnHash: input.bvnHash }],
+    },
   });
+  if (existingMember?.phoneNumber === input.phoneNumber) {
+    throw new Error("PHONE_NUMBER_EXISTS");
+  }
+  if (existingMember?.bvnHash === input.bvnHash) {
+    throw new Error("BVN_EXISTS");
+  }
+
   let member;
   try {
     member = await prisma.member.create({
@@ -182,9 +193,10 @@ export async function registerMember(input: {
         firstName: input.firstName,
         lastName: input.lastName,
         phoneNumber: input.phoneNumber,
+        passwordHash: input.passwordHash,
         bvnHash: input.bvnHash,
-        bvnVerified: existing.length === 0,
-        bvnVerifiedAt: existing.length === 0 ? new Date() : null,
+        bvnVerified: true,
+        bvnVerifiedAt: new Date(),
         role: input.role || "member",
         isActive: true,
       },
@@ -193,24 +205,11 @@ export async function registerMember(input: {
     // Handle race condition where another request inserted the same BVN concurrently.
     const e = err as any;
     if (e?.code === "P2002") {
-      const existingMember = await prisma.member.findFirst({
-        where: { bvnHash: input.bvnHash },
-      });
-      if (existingMember) {
-        return {
-          member: existingMember,
-          verification: {
-            verified: false,
-            duplicateCount: 1,
-            bvnNameMatch: false,
-            details: { duplicateDetected: true },
-          },
-          nomba: {
-            accountCreated: false,
-            virtualAccountCreated: false,
-            accountRef: `va_${existingMember.id}`,
-          },
-        };
+      if (Array.isArray(e?.meta?.target) && e.meta.target.includes("phoneNumber")) {
+        throw new Error("PHONE_NUMBER_EXISTS");
+      }
+      if (Array.isArray(e?.meta?.target) && e.meta.target.includes("bvnHash")) {
+        throw new Error("BVN_EXISTS");
       }
     }
     throw err;
@@ -219,14 +218,14 @@ export async function registerMember(input: {
   return {
     member,
     verification: {
-      verified: existing.length === 0,
-      duplicateCount: existing.length,
-      bvnNameMatch: existing.length === 0,
-      details: { duplicateCount: existing.length },
+      verified: true,
+      duplicateCount: 0,
+      bvnNameMatch: true,
+      details: { duplicateCount: 0 },
     },
     nomba: {
       accountCreated: true,
-      virtualAccountCreated: existing.length === 0,
+      virtualAccountCreated: true,
       accountRef: `va_${member.id}`,
     },
   };
@@ -236,6 +235,17 @@ export async function loginMember(memberId: string) {
   if (!usingDatabase) return getMemberOrThrow(memberId);
   const member = await prisma.member.findUnique({ where: { id: memberId } });
   if (!member) throw new Error(`Member ${memberId} not found`);
+  return member;
+}
+
+export async function loginMemberWithPassword(identifier: string) {
+  if (identifier.startsWith("mem_")) {
+    return loginMember(identifier);
+  }
+
+  if (!usingDatabase) return getMemberByPhoneNumberOrThrow(identifier);
+  const member = await prisma.member.findUnique({ where: { phoneNumber: identifier } });
+  if (!member) throw new Error(`Member with phone number ${identifier} not found`);
   return member;
 }
 

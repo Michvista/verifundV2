@@ -49,6 +49,7 @@ export type HealthResponse = {
   service: string;
   mode: string;
   nombaMode: "live" | "mock" | string;
+  databaseMode?: "postgres" | "memory" | string;
   time: string;
 };
 
@@ -207,13 +208,18 @@ export async function getHealth() {
   return request<HealthResponse>("/health");
 }
 
-export async function login(memberId: string) {
+export type LoginPayload = {
+  identifier: string;
+  password: string;
+};
+
+export async function login(payload: LoginPayload) {
   return request<{
     token: string;
     member: { id: string; firstName: string; lastName: string; role: string };
   }>("/auth/login", {
     method: "POST",
-    body: JSON.stringify({ memberId }),
+    body: JSON.stringify(payload),
   });
 }
 
@@ -245,6 +251,7 @@ export type RegisterPayload = {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  password: string;
   bvnHash: string;
   role?: UserRole;
 };
@@ -489,8 +496,8 @@ export async function requestWithdrawal(payload: RequestWithdrawalPayload) {
 }
 
 export type SignWithdrawalPayload = {
-  memberId: string;
-  role: UserRole | string;
+  memberId?: string;
+  role?: UserRole | string;
 };
 
 export async function signWithdrawal(

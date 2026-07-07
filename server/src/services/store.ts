@@ -78,6 +78,10 @@ function getMember(memberId: string): Member | undefined {
   return state.members.find((item) => item.id === memberId);
 }
 
+function getMemberByPhoneNumber(phoneNumber: string): Member | undefined {
+  return state.members.find((item) => item.phoneNumber === phoneNumber);
+}
+
 function toDashboard(cooperativeId: string): DashboardShape {
   const cooperative = getCooperative(cooperativeId);
   if (!cooperative) {
@@ -402,16 +406,26 @@ export async function releaseWithdrawal(withdrawalId: string) {
   return { withdrawal, transfer };
 }
 
-export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; bvnHash: string; role?: Member['role'] }) {
-  const existing = state.members.find((member) => member.bvnHash === input.bvnHash);
+export function createMember(input: { firstName: string; lastName: string; phoneNumber: string; passwordHash: string; bvnHash: string; role?: Member['role'] }) {
+  const existingPhoneNumber = state.members.find((member) => member.phoneNumber === input.phoneNumber);
+  if (existingPhoneNumber) {
+    throw new Error('PHONE_NUMBER_EXISTS');
+  }
+
+  const existingBvn = state.members.find((member) => member.bvnHash === input.bvnHash);
+  if (existingBvn) {
+    throw new Error('BVN_EXISTS');
+  }
+
   const member: Member = {
     id: `mem_${Date.now()}`,
     firstName: input.firstName,
     lastName: input.lastName,
     phoneNumber: input.phoneNumber,
+    passwordHash: input.passwordHash,
     bvnHash: input.bvnHash,
-    bvnVerified: !existing,
-    bvnVerifiedAt: !existing ? now() : undefined,
+    bvnVerified: true,
+    bvnVerifiedAt: now(),
     role: input.role || 'member',
     isActive: true,
   };
@@ -509,6 +523,14 @@ export function getMemberOrThrow(memberId: string) {
   const member = getMember(memberId);
   if (!member) {
     throw new Error(`Member ${memberId} not found`);
+  }
+  return member;
+}
+
+export function getMemberByPhoneNumberOrThrow(phoneNumber: string) {
+  const member = getMemberByPhoneNumber(phoneNumber);
+  if (!member) {
+    throw new Error(`Member with phone number ${phoneNumber} not found`);
   }
   return member;
 }

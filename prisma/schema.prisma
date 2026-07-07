@@ -11,7 +11,8 @@ model Member {
   id           String   @id @default(cuid())
   firstName    String
   lastName     String
-  phoneNumber  String
+  phoneNumber  String   @unique
+  passwordHash String
   bvnHash      String   @unique
   bvnVerified  Boolean  @default(false)
   bvnVerifiedAt DateTime?

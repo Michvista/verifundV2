@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { login as loginRequest } from "../services/api";
+import { login as loginRequest, type LoginPayload } from "../services/api";
 import {
   clearStoredSession,
   getStoredSession,
@@ -14,7 +14,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   token: string | null;
   isAuthenticated: boolean;
-  signIn: (memberId: string) => Promise<AuthSession>;
+  signIn: (credentials: LoginPayload) => Promise<AuthSession>;
   signOut: () => void;
 };
 
@@ -29,8 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  async function signIn(memberId: string) {
-    const result = await loginRequest(memberId);
+  async function signIn(credentials: LoginPayload) {
+    const result = await loginRequest(credentials);
     const nextSession = { token: result.token, user: result.member };
     saveStoredSession(nextSession);
     setSession(nextSession);

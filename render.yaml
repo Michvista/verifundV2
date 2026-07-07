@@ -8,3 +8,25 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: NOMBA_CLIENT_ID
+        sync: false
+      - key: NOMBA_CLIENT_SECRET
+        sync: false
+      - key: NOMBA_ACCOUNT_ID
+        sync: false
+      - key: NOMBA_SUB_ACCOUNT_ID
+        sync: false
+      - key: NOMBA_WEBHOOK_SECRET
+        sync: false
+      - key: NOMBA_ALLOW_MOCK_FALLBACK
+        value: "false"
+      - key: NOMBA_ENV
+        value: production
+      - key: NOMBA_SIGNATURE_HEADER
+        value: signature

@@ -108,12 +108,13 @@ Body:
   "firstName": "Ada",
   "lastName": "Okafor",
   "phoneNumber": "+2348000000000",
+  "password": "Password123!",
   "bvnHash": "hash_bvn_unique",
   "role": "member"
 }
 ```
 
-Required fields are `firstName`, `lastName`, `phoneNumber`, and `bvnHash`. `role` is optional and defaults to `member`.
+Required fields are `firstName`, `lastName`, `phoneNumber`, `password`, and `bvnHash`. `role` is optional and defaults to `member`. Passwords are hashed by the backend before storage and are never returned by the API.
 
 Success `201`:
 
@@ -124,11 +125,8 @@ Success `201`:
     "firstName": "Ada",
     "lastName": "Okafor",
     "phoneNumber": "+2348000000000",
-    "bvnHash": "hash_bvn_unique",
     "bvnVerified": true,
-    "bvnVerifiedAt": "2026-07-05T12:00:00.000Z",
-    "role": "member",
-    "isActive": true
+    "role": "member"
   },
   "verification": {
     "verified": true,
@@ -153,7 +151,10 @@ POST /api/auth/login
 Body:
 
 ```json
-{ "memberId": "mem-01" }
+{
+  "phoneNumber": "+2348000000001",
+  "password": "Password123!"
+}
 ```
 
 Success:
@@ -170,15 +171,15 @@ Success:
 }
 ```
 
-Demo/fallback roles commonly used by the seeded data are:
+Demo/fallback users all use password `Password123!`:
 
-| Member ID | Role |
-| --- | --- |
-| `mem-01` | `treasurer` |
-| `mem-02` | `executive1` |
-| `mem-03` | `executive2` |
-| `admin-01` | `admin` |
-| `reg-01` | `regulator` |
+| Phone Number | Member ID | Role |
+| --- | --- | --- |
+| `+2348000000001` | `mem-01` | `treasurer` |
+| `+2348000000002` | `mem-02` | `executive1` |
+| `+2348000000003` | `mem-03` | `executive2` |
+| `+2348000000004` | `admin-01` | `admin` |
+| `+2348000000005` | `reg-01` | `regulator` |
 
 ## 5. Dashboard
 
@@ -735,10 +736,11 @@ Body:
 
 ```json
 {
-  "memberId": "mem-02",
   "role": "executive1"
 }
 ```
+
+`memberId` is inferred from the bearer token in the current backend, so the frontend does not need to send it.
 
 Success:
 

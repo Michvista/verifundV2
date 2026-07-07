@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { attachRealtime } from './services/realtime';
 import { startNombaCron } from './services/nombaCron';
 import { usingDatabase } from './services/db';
+import { validateProductionConfig } from './services/config';
 
 async function seedDatabase() {
   if (!usingDatabase) {
@@ -21,6 +22,7 @@ const server = http.createServer(app);
 attachRealtime(server);
 
 async function startServer() {
+  validateProductionConfig();
   await seedDatabase();
   startNombaCron();
   server.listen(port, () => {

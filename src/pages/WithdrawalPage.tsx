@@ -275,7 +275,7 @@ export function WithdrawalPage() {
     setActionLoading(true);
     setActionMsg(null);
     try {
-      const res = await signWithdrawal(selectedQueueId, { memberId: user.id, role: user.role });
+      const res = await signWithdrawal(selectedQueueId, {});
       setActionMsg(`Signature recorded. Total: ${res.signatureCount}/3`);
       const updated = await getQueueItem(selectedQueueId).catch(() => null);
       if (updated) {

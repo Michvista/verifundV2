@@ -9,6 +9,8 @@ import type {
   ApiDashboard,
 } from '../types';
 
+const demoPasswordHash = '$2a$10$t6iQGUQMzwoqNlE.gAn/..m/HGKGkpmqOi73ORWh3vUvehxX6qOhG';
+
 export const seedDashboard: ApiDashboard = {
   balance: 482000.5,
   nextContribution: 'Jan 15, ₦20,000',
@@ -51,6 +53,7 @@ export const seedMembers: Member[] = [
     firstName: 'Amina',
     lastName: 'Okafor',
     phoneNumber: '+2348000000001',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_001',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:00:00.000Z').toISOString(),
@@ -62,6 +65,7 @@ export const seedMembers: Member[] = [
     firstName: 'Bola',
     lastName: 'Adewale',
     phoneNumber: '+2348000000002',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_002',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:05:00.000Z').toISOString(),
@@ -73,6 +77,7 @@ export const seedMembers: Member[] = [
     firstName: 'Chika',
     lastName: 'Nwosu',
     phoneNumber: '+2348000000003',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_003',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:10:00.000Z').toISOString(),
@@ -84,6 +89,7 @@ export const seedMembers: Member[] = [
     firstName: 'Regina',
     lastName: 'Ojo',
     phoneNumber: '+2348000000004',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_admin',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:20:00.000Z').toISOString(),
@@ -95,6 +101,7 @@ export const seedMembers: Member[] = [
     firstName: 'Ifeanyi',
     lastName: 'Okoro',
     phoneNumber: '+2348000000005',
+    passwordHash: demoPasswordHash,
     bvnHash: 'hash_bvn_regulator',
     bvnVerified: true,
     bvnVerifiedAt: new Date('2026-06-29T10:25:00.000Z').toISOString(),

@@ -18,6 +18,9 @@ const FraudAlertsPage = lazy(() =>
 const LoginPage = lazy(() =>
   import('./pages/LoginPage').then((module) => ({ default: module.LoginPage })),
 );
+const LandingPage = lazy(() =>
+  import('./pages/LandingPage').then((module) => ({ default: module.LandingPage })),
+);
 const OnboardPage = lazy(() =>
   import('./pages/OnboardPage').then((module) => ({ default: module.OnboardPage })),
 );
@@ -51,10 +54,10 @@ export default function App() {
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
+        <Route index element={<LandingPage />} />
         <Route path="onboard" element={<OnboardPage />} />
         <Route path="login" element={<LoginPage />} />
-        <Route path="/" element={<Shell />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route element={<Shell />}>
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="cooperative" element={<CooperativePage />} />
           <Route path="cooperative/trust-score" element={<TrustScorePage />} />

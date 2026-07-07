@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hasUsableDatabaseUrl } from './config';
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
@@ -8,4 +9,5 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma;
 }
 
-export const usingDatabase = Boolean(process.env.DATABASE_URL) && process.env.VERIFUND_FORCE_MEMORY !== '1';
+export const usingDatabase = hasUsableDatabaseUrl();
+export const databaseMode = usingDatabase ? 'postgres' : 'memory';

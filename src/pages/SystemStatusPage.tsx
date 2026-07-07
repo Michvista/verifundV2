@@ -39,6 +39,7 @@ export function SystemStatusPage() {
 
   const apiTone = health?.ok ? 'success' : error ? 'danger' : 'neutral';
   const nombaTone = health?.nombaMode === 'live' ? 'success' : 'soft';
+  const databaseTone = health?.databaseMode === 'postgres' ? 'success' : 'soft';
 
   return (
     <div className="withdrawal-layout">
@@ -65,6 +66,10 @@ export function SystemStatusPage() {
             <span>Backend Mode</span>
             <strong>{health?.mode ?? 'Unknown'}</strong>
           </div>
+          <div>
+            <span>Database Mode</span>
+            <strong>{health?.databaseMode ?? 'Unknown'}</strong>
+          </div>
         </div>
 
         {error && (
@@ -88,6 +93,9 @@ export function SystemStatusPage() {
             <div className="risk-panel__footer">
               <StatusPill tone={nombaTone}>
                 {health?.nombaMode ? `NOMBA ${health.nombaMode.toUpperCase()}` : 'NOMBA UNKNOWN'}
+              </StatusPill>
+              <StatusPill tone={databaseTone}>
+                {health?.databaseMode ? `DB ${health.databaseMode.toUpperCase()}` : 'DB UNKNOWN'}
               </StatusPill>
               <span>{health?.nombaMode === 'live' ? 'Real provider mode' : 'Mock or fallback mode'}</span>
             </div>

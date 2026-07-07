@@ -14,12 +14,26 @@ import { webhookRoutes } from './routes/webhookRoutes';
 import { withdrawalRoutes } from './routes/withdrawalRoutes';
 import { getFraudAlertData, getStateSnapshotData, getTrustScoreData, listFraudAlertsData } from './services/repository';
 import { isNombaConfigured } from './services/nombaService';
+import { databaseMode } from './services/db';
+import { getAllowedCorsOrigins, isProduction } from './services/config';
 
 export function createApp() {
   const app = express();
+  const allowedOrigins = getAllowedCorsOrigins();
 
   app.use(helmet());
-  app.use(cors({ origin: true }));
+  app.use(
+    cors({
+      origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
+
+        callback(new Error('Not allowed by CORS'));
+      },
+    }),
+  );
   // Capture the raw request body bytes alongside the parsed JSON. The Nomba webhook signature
   // must be computed over the exact raw bytes Nomba sent, not a re-serialized JSON.parse'd copy.
   app.use(
@@ -37,6 +51,7 @@ export function createApp() {
       service: 'verifund-api',
       mode: 'monolith',
       nombaMode: isNombaConfigured() ? 'live' : 'mock',
+      databaseMode,
       time: new Date().toISOString(),
     });
   });
@@ -47,6 +62,7 @@ export function createApp() {
       service: 'verifund-api',
       mode: 'monolith',
       nombaMode: isNombaConfigured() ? 'live' : 'mock',
+      databaseMode,
       time: new Date().toISOString(),
     });
   });
@@ -92,8 +108,8 @@ export function createApp() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   app.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-    // Avoid leaking stack traces in demo mode.
-    res.status(500).json({ message: error?.message ?? 'Internal server error' });
+    console.error(error);
+    res.status(500).json({ message: isProduction ? 'Internal server error' : error?.message ?? 'Internal server error' });
   });
 
   return app;

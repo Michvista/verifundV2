@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type { AuthenticatedRequest } from '../middleware/authMiddleware';
 import { createWithdrawalRequestData, getWithdrawalData, listWithdrawalsData, releaseWithdrawalData, signWithdrawalData } from '../services/repository';
 import { explainWithdrawalRisk } from '../services/riskScoring';
 import { lookupBankAccount } from '../services/nombaService';
@@ -45,8 +46,14 @@ export async function requestWithdrawalController(req: Request, res: Response) {
   });
 }
 
-export async function signWithdrawalController(req: Request, res: Response) {
-  const { memberId, role } = req.body ?? {};
+export async function signWithdrawalController(req: AuthenticatedRequest, res: Response) {
+  const body = req.body ?? {};
+  let { memberId, role } = body as { memberId?: string; role?: string };
+
+  // If the client didn't send identity fields, infer from the authenticated token.
+  if (!memberId && req.user) memberId = req.user.id;
+  if (!role && req.user) role = req.user.role;
+
   if (!memberId || !role) return res.status(400).json({ message: 'memberId and role are required' });
 
   const result = await signWithdrawalData(req.params.id, {

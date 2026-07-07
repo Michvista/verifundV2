@@ -10,6 +10,7 @@ export interface Member {
   firstName: string;
   lastName: string;
   phoneNumber: string;
+  passwordHash: string;
   bvnHash: string;
   bvnVerified: boolean;
   bvnVerifiedAt?: string;
