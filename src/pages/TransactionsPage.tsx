@@ -31,10 +31,9 @@ export function TransactionsPage() {
     return (
       <SectionCard
         title="Transactions"
-        subtitle="Select or create a cooperative before running transaction operations."
         className="page-reveal"
       >
-        <p className="empty-state">No active cooperative is set yet.</p>
+        <p className="empty-state">No cooperative selected.</p>
       </SectionCard>
     );
   }
@@ -43,7 +42,6 @@ export function TransactionsPage() {
     <div className="withdrawal-layout">
       <SectionCard
         title="Transaction Operations"
-        subtitle="Monitor Nomba credit sync and queue demo credits for the active cooperative."
         actions={<StatusPill tone={status?.nombaConfigured ? 'success' : 'soft'}>{status?.nombaConfigured ? 'LIVE' : 'DEMO MODE'}</StatusPill>}
         className="page-reveal"
       >

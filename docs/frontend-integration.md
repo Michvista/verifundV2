@@ -173,13 +173,13 @@ Success:
 
 Demo/fallback users all use password `Password123!`:
 
-| Phone Number | Member ID | Role |
-| --- | --- | --- |
-| `+2348000000001` | `mem-01` | `treasurer` |
-| `+2348000000002` | `mem-02` | `executive1` |
-| `+2348000000003` | `mem-03` | `executive2` |
-| `+2348000000004` | `admin-01` | `admin` |
-| `+2348000000005` | `reg-01` | `regulator` |
+| Phone Number     | Member ID  | Role         |
+| ---------------- | ---------- | ------------ |
+| `+2348000000001` | `mem-01`   | `treasurer`  |
+| `+2348000000002` | `mem-02`   | `executive1` |
+| `+2348000000003` | `mem-03`   | `executive2` |
+| `+2348000000004` | `admin-01` | `admin`      |
+| `+2348000000005` | `reg-01`   | `regulator`  |
 
 ## 5. Dashboard
 
@@ -307,9 +307,7 @@ Success:
   "memberCount": 1248,
   "balance": 48200050,
   "trustHistory": [42, 48, 54],
-  "scoreBreakdown": [
-    { "label": "Member Verification", "value": 95 }
-  ]
+  "scoreBreakdown": [{ "label": "Member Verification", "value": 95 }]
 }
 ```
 
@@ -601,9 +599,7 @@ Success:
       "createdAt": "2026-07-05T12:00:00.000Z",
       "average30d": 510000,
       "signatureCount": 1,
-      "explanations": [
-        "Amount is 4.8x the rolling 30-day average"
-      ]
+      "explanations": ["Amount is 4.8x the rolling 30-day average"]
     }
   ]
 }
@@ -705,9 +701,7 @@ Success `201`:
   "withdrawalId": "wf_123",
   "riskScore": 0.9,
   "riskCategory": "high",
-  "reasons": [
-    "Amount is 4.8x the rolling 30-day average"
-  ],
+  "reasons": ["Amount is 4.8x the rolling 30-day average"],
   "signals": {
     "ratio": 4.803921568627451,
     "zScore": 2716.915,
@@ -716,9 +710,7 @@ Success `201`:
     "bvnDuplicate": false
   },
   "status": "pending",
-  "explanations": [
-    "Amount is 4.8x the rolling 30-day average"
-  ],
+  "explanations": ["Amount is 4.8x the rolling 30-day average"],
   "destinationAccountName": "Verified Account Holder (mock)"
 }
 ```
@@ -948,9 +940,7 @@ Success:
   "cooperativeId": "okafor-farmers-thrift",
   "riskScore": 0.9,
   "riskCategory": "high",
-  "reasons": [
-    "Amount is 4.8x the rolling 30-day average"
-  ],
+  "reasons": ["Amount is 4.8x the rolling 30-day average"],
   "contributionSignal": {
     "riskScore": 0.08,
     "riskCategory": "low",
@@ -1113,35 +1103,35 @@ function normalizeWithdrawal(item: any) {
 
 ## 16. Auth And Role Matrix
 
-| Endpoint | Auth | Roles |
-| --- | --- | --- |
-| `POST /api/auth/register` | No | Public |
-| `POST /api/auth/login` | No | Public |
-| `GET /api/dashboard` | No | Public |
-| `POST /api/cooperative` | Yes | `admin` |
-| `GET /api/cooperative/:id` | No | Public |
-| `GET /api/cooperative/:id/trust-score` | No | Public |
-| `POST /api/contribution` | Yes | `member`, `treasurer`, `admin` |
-| `GET /api/nomba/banks` | No | Public |
-| `POST /api/nomba/verify-account` | No | Public |
-| `POST /api/nomba/simulate-deposit` | No | Public/demo |
-| `GET /api/cron/nomba/status` | No | Public/demo |
-| `POST /api/cron/nomba/test-credit` | No | Public/demo |
-| `POST /api/cron/nomba/run` | No | Public/demo |
-| `GET /api/withdrawals` | Yes | `admin`, `treasurer`, `executive1`, `executive2` |
-| `GET /api/withdrawals/:id` | No | Public in current backend |
-| `POST /api/withdrawals/request/preview` | No | Public |
-| `POST /api/withdrawals/request` | Yes | `treasurer`, `admin` |
-| `POST /api/withdrawals/:id/sign` | Yes | `treasurer`, `executive1`, `executive2`, `admin` |
-| `POST /api/withdrawals/:id/release` | Yes | `admin`, `treasurer` |
-| `GET /api/alerts` | Yes | `admin`, `regulator` |
-| `GET /api/alerts/:id` | Yes | `admin`, `regulator` |
-| `GET /api/fraud-alerts` | No | Public alias |
-| `GET /api/fraud-alerts/:id` | No | Public alias |
-| `GET /api/audit/log/:cooperativeId` | Yes | `admin`, `regulator` |
-| `POST /api/whistleblower/report` | No | Public |
-| `GET /api/risk/:cooperativeId` | No | Public/sample |
-| `POST /api/webhooks/nomba` | Signature | Nomba/simulator |
+| Endpoint                                | Auth      | Roles                                            |
+| --------------------------------------- | --------- | ------------------------------------------------ |
+| `POST /api/auth/register`               | No        | Public                                           |
+| `POST /api/auth/login`                  | No        | Public                                           |
+| `GET /api/dashboard`                    | No        | Public                                           |
+| `POST /api/cooperative`                 | Yes       | `admin`                                          |
+| `GET /api/cooperative/:id`              | No        | Public                                           |
+| `GET /api/cooperative/:id/trust-score`  | No        | Public                                           |
+| `POST /api/contribution`                | Yes       | `member`, `treasurer`, `admin`                   |
+| `GET /api/nomba/banks`                  | No        | Public                                           |
+| `POST /api/nomba/verify-account`        | No        | Public                                           |
+| `POST /api/nomba/simulate-deposit`      | No        | Public/demo                                      |
+| `GET /api/cron/nomba/status`            | No        | Public/demo                                      |
+| `POST /api/cron/nomba/test-credit`      | No        | Public/demo                                      |
+| `POST /api/cron/nomba/run`              | No        | Public/demo                                      |
+| `GET /api/withdrawals`                  | Yes       | `admin`, `treasurer`, `executive1`, `executive2` |
+| `GET /api/withdrawals/:id`              | No        | Public in current backend                        |
+| `POST /api/withdrawals/request/preview` | No        | Public                                           |
+| `POST /api/withdrawals/request`         | Yes       | `treasurer`, `admin`                             |
+| `POST /api/withdrawals/:id/sign`        | Yes       | `treasurer`, `executive1`, `executive2`, `admin` |
+| `POST /api/withdrawals/:id/release`     | Yes       | `admin`, `treasurer`                             |
+| `GET /api/alerts`                       | Yes       | `admin`, `regulator`                             |
+| `GET /api/alerts/:id`                   | Yes       | `admin`, `regulator`                             |
+| `GET /api/fraud-alerts`                 | No        | Public alias                                     |
+| `GET /api/fraud-alerts/:id`             | No        | Public alias                                     |
+| `GET /api/audit/log/:cooperativeId`     | Yes       | `admin`, `regulator`                             |
+| `POST /api/whistleblower/report`        | No        | Public                                           |
+| `GET /api/risk/:cooperativeId`          | No        | Public/sample                                    |
+| `POST /api/webhooks/nomba`              | Signature | Nomba/simulator                                  |
 
 ## 17. Integration Notes
 

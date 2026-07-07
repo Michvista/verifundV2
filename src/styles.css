@@ -1730,7 +1730,8 @@ button:disabled {
   stroke-linejoin: round;
 }
 
-.auth-field input {
+.auth-field input,
+.auth-field select {
   width: 100%;
   min-width: 0;
   height: 54px;
@@ -1743,6 +1744,11 @@ button:disabled {
 
 .auth-field input::placeholder {
   color: #9aa3af;
+}
+
+.auth-field select {
+  appearance: none;
+  cursor: pointer;
 }
 
 .auth-card .input-block {

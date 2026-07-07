@@ -137,13 +137,9 @@ export function DashboardPage() {
     return (
       <SectionCard
         title="No cooperative selected"
-        subtitle="Create a cooperative first, then load its dashboard here."
         className="page-reveal"
       >
-        <p className="empty-state">
-          Use the cooperative setup page to create a live treasury, then return here with the
-          saved cooperative ID.
-        </p>
+        <p className="empty-state">Select a cooperative to view its dashboard.</p>
       </SectionCard>
     );
   }
@@ -157,7 +153,6 @@ export function DashboardPage() {
     <div className="dashboard-layout">
       <section className="hero-card page-reveal">
         <div className="hero-card__copy">
-          <div className="eyebrow">Treasury Overview</div>
           <div className="balance">
             {dashboard ? formatNaira(dashboard.balance) : isInitialLoading ? 'Loading balance...' : 'Balance unavailable'}
           </div>
@@ -181,9 +176,6 @@ export function DashboardPage() {
             <span>{dashboard?.trustScore ?? 0}</span>
             <small>{dashboard ? 'Live' : isInitialLoading ? 'Loading' : 'Idle'}</small>
           </div>
-          <div className="hero-card__note">
-            Treasury credits are now reconciled by a cron sync instead of a webhook secret.
-          </div>
           <Sparkline
             values={trend}
             stroke="#0d7c66"
@@ -197,7 +189,6 @@ export function DashboardPage() {
         <div className="main-stack">
           <SectionCard
             title="Contribution History"
-            subtitle="Ledger-style passbook view with live records only."
             className="page-reveal"
           >
             {history.length ? (
@@ -232,17 +223,12 @@ export function DashboardPage() {
 
           <SectionCard
             title="Treasury Notes"
-            subtitle="What the current balance means."
             className="page-reveal"
           >
             <div className="detail-grid">
               <div>
                 <span>Active Cooperative</span>
                 <strong>{cooperativeId}</strong>
-              </div>
-              <div>
-                <span>Loaded User</span>
-                <strong>{user ? `${user.firstName} ${user.lastName}` : 'Unknown'}</strong>
               </div>
               <div>
                 <span>Cron Status</span>
@@ -264,10 +250,6 @@ export function DashboardPage() {
           <section className="deposit-panel page-reveal">
             <div className="eyebrow">Manual Contribution</div>
             <h2>Record member payment</h2>
-            <p>
-              Use this for demo and admin-tested contribution ingestion. Live payment credits should
-              still flow through Nomba sync.
-            </p>
 
             <label className="input-block">
               <span>Contribution Amount (NGN)</span>
@@ -313,12 +295,10 @@ export function DashboardPage() {
             <StatusPill tone="success">
               {dashboard?.loanStatus?.toUpperCase() ?? 'ELIGIBLE'}
             </StatusPill>
-            <p>Loan controls are scored elsewhere. This view stays read-only until approval.</p>
           </section>
 
           <SectionCard
             title="Live Activity Feed"
-            subtitle="Recent cooperative events and verification updates."
             className="page-reveal"
           >
             {feed.length ? (

@@ -45,7 +45,6 @@ export function SystemStatusPage() {
     <div className="withdrawal-layout">
       <SectionCard
         title="System Status"
-        subtitle="Runtime connectivity for the frontend, backend, Nomba mode, and realtime feed."
         actions={<StatusPill tone={apiTone}>{health?.ok ? 'ONLINE' : error ? 'OFFLINE' : 'CHECKING'}</StatusPill>}
         className="page-reveal"
       >
@@ -85,7 +84,6 @@ export function SystemStatusPage() {
       <section className="risk-panel page-reveal">
         <div className="risk-panel__grid">
           <div>
-            <div className="eyebrow">Backend Health</div>
             <h2>{health?.ok ? 'API is reachable' : loading ? 'Checking backend...' : 'API status unknown'}</h2>
             <p style={{ color: 'var(--muted)', marginTop: 8 }}>
               Last backend timestamp: {formatDate(health?.time)}
@@ -97,7 +95,6 @@ export function SystemStatusPage() {
               <StatusPill tone={databaseTone}>
                 {health?.databaseMode ? `DB ${health.databaseMode.toUpperCase()}` : 'DB UNKNOWN'}
               </StatusPill>
-              <span>{health?.nombaMode === 'live' ? 'Real provider mode' : 'Mock or fallback mode'}</span>
             </div>
           </div>
 
@@ -114,14 +111,13 @@ export function SystemStatusPage() {
 
         {hasMixedSocketScheme && (
           <div className="callout" style={{ marginTop: 16 }}>
-            Production HTTPS frontends should use a secure WebSocket URL such as
-            <strong> wss://verifundv2.onrender.com/ws</strong>.
+            Use a secure WebSocket URL for HTTPS frontends.
           </div>
         )}
 
         {!hasMixedSocketScheme && (
           <div className="notice" style={{ marginTop: 16 }}>
-            WebSocket scheme is compatible with the configured API transport.
+            Transport is compatible.
           </div>
         )}
       </section>
