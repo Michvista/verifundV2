@@ -12,7 +12,7 @@ model Member {
   firstName    String
   lastName     String
   phoneNumber  String   @unique
-  passwordHash String
+  passwordHash String?
   bvnHash      String   @unique
   bvnVerified  Boolean  @default(false)
   bvnVerifiedAt DateTime?
