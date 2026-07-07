@@ -118,7 +118,6 @@ export function RiskDashboardPage() {
                 value={`${contributionScore}/100`}
                 caption={risk?.contributionSignal.riskCategory ?? 'Waiting'}
               />
-              <Metric label="Signal Source" value="Backend" caption="GET /api/risk/:cooperativeId" />
             </div>
           </div>
         </div>

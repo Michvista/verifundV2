@@ -2,11 +2,10 @@ import { broadcastFeedEvent } from './realtime';
 import { fetchAccountTransactions, isNombaConfigured } from './nombaService';
 import {
   enqueueTreasuryCredit,
-  listCooperatives,
   listPendingTreasuryCredits,
-  processPendingTreasuryCredits,
-  recordTreasuryCredit,
+  removePendingTreasuryCredit,
 } from './store';
+import { listTreasuryCooperativesData, recordTreasuryCreditData } from './repository';
 
 type PollResult = {
   trigger: 'scheduled' | 'manual' | 'test';
@@ -84,12 +83,28 @@ export function stopNombaCron() {
 
 export async function runNombaCreditSync(trigger: PollResult['trigger'] = 'manual') {
   const pendingBefore = listPendingTreasuryCredits().length;
-  const queuedCredits = processPendingTreasuryCredits();
+  const queuedCredits: Array<{ id: string; cooperativeId: string; nombaTransactionRef: string }> = [];
+  for (const credit of [...listPendingTreasuryCredits()]) {
+    const result = await recordTreasuryCreditData({
+      cooperativeId: credit.cooperativeId,
+      amount: credit.amount,
+      nombaTransactionRef: credit.nombaTransactionRef,
+      source: credit.source,
+    });
+    if (result.processed) {
+      queuedCredits.push({
+        id: credit.id,
+        cooperativeId: credit.cooperativeId,
+        nombaTransactionRef: credit.nombaTransactionRef,
+      });
+      removePendingTreasuryCredit(credit.id);
+    }
+  }
   let scannedTransactions = 0;
   let processedCredits = queuedCredits.length;
   let matchedCooperatives = 0;
 
-  const cooperatives = listCooperatives();
+  const cooperatives = await listTreasuryCooperativesData();
 
   if (isNombaConfigured() && cooperatives.length) {
     for (const cooperative of cooperatives) {
@@ -109,7 +124,7 @@ export async function runNombaCreditSync(trigger: PollResult['trigger'] = 'manua
         if (!destinationMatches) continue;
 
         matchedCooperatives += 1;
-        const result = recordTreasuryCredit({
+        const result = await recordTreasuryCreditData({
           cooperativeId: cooperative.id,
           amount: tx.amount,
           nombaTransactionRef: tx.reference,
