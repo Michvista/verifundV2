@@ -92,7 +92,9 @@ function toDashboard(cooperativeId: string): DashboardShape {
     cooperativeId: cooperative.id,
     healthScore: cooperative.healthScore,
     balance: cooperative.balance,
-    nextContribution: 'No active contribution scheduled',
+    nextContribution: cooperative.expectedContributionAmount
+      ? `Next due: ₦${cooperative.expectedContributionAmount.toLocaleString('en-NG')}`
+      : 'No active contribution scheduled',
     tenure: '0 Months Active',
     loanStatus: cooperative.balance > 0 ? 'Eligible' : 'Unavailable',
   };
@@ -433,12 +435,12 @@ export function createMember(input: { firstName: string; lastName: string; phone
   return member;
 }
 
-export async function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string }) {
+export async function createCooperative(input: { name: string; registrationNumber: string; stateName: string; cooperativeType: Cooperative['cooperativeType']; bvn?: string; expectedContributionAmount: number }) {
   const virtualAccount = await createVirtualAccount({
     accountName: input.name,
     accountRef: `va_${input.registrationNumber}`,
     bvn: input.bvn,
-    expectedAmount: 20000,
+    expectedAmount: input.expectedContributionAmount,
   });
 
   const cooperative: Cooperative = {
@@ -455,6 +457,7 @@ export async function createCooperative(input: { name: string; registrationNumbe
     isActive: true,
     memberCount: 0,
     balance: 0,
+    expectedContributionAmount: input.expectedContributionAmount,
   };
 
   state.cooperatives.unshift(cooperative);

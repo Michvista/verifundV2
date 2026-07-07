@@ -189,6 +189,7 @@ export type CooperativeResponse = {
   isActive: boolean;
   memberCount: number;
   balance: number;
+  expectedContributionAmount?: number;
   trustHistory?: number[];
   scoreBreakdown?: Array<{ label: string; value: number }>;
 };
@@ -269,6 +270,7 @@ export type CreateCooperativePayload = {
   stateName: string;
   cooperativeType: CooperativeType;
   bvn?: string;
+  expectedContributionAmount: number;
 };
 
 export async function createCooperative(payload: CreateCooperativePayload) {

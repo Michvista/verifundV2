@@ -67,7 +67,7 @@ export async function getDashboardData(
 
   return {
     balance: base.balance || 0,
-    nextContribution: "Jan 15, ₦20,000",
+    nextContribution: `Jan 15, ₦${Number(base.expectedContributionAmount ?? 20000).toLocaleString("en-NG")}`,
     tenure: "14 Months Active",
     trustScore: base.healthScore,
     loanStatus: "Eligible",
@@ -255,6 +255,7 @@ export async function createCooperativeData(input: {
   stateName: string;
   cooperativeType: Cooperative["cooperativeType"];
   bvn?: string;
+  expectedContributionAmount: number;
 }) {
   if (!usingDatabase) return await createCooperative(input);
 
@@ -262,7 +263,7 @@ export async function createCooperativeData(input: {
     accountName: input.name,
     accountRef: `va_${input.registrationNumber}`,
     bvn: input.bvn,
-    expectedAmount: 20000,
+    expectedAmount: input.expectedContributionAmount,
   });
 
   const cooperative = await prisma.cooperative.create({
@@ -279,6 +280,7 @@ export async function createCooperativeData(input: {
       isActive: true,
       memberCount: 0,
       balance: 0,
+      expectedContributionAmount: input.expectedContributionAmount,
     },
   });
 

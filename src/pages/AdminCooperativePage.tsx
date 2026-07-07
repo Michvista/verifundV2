@@ -20,6 +20,7 @@ export function AdminCooperativePage() {
   const [stateName, setStateName] = useState('');
   const [cooperativeType, setCooperativeType] = useState<CooperativeType>('thrift');
   const [bvn, setBvn] = useState('');
+  const [expectedContributionAmount, setExpectedContributionAmount] = useState('20000');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateCooperativeResult | null>(null);
@@ -28,11 +29,13 @@ export function AdminCooperativePage() {
   const trimmedRegistrationNumber = registrationNumber.trim();
   const trimmedStateName = stateName.trim();
   const trimmedBvn = bvn.trim();
+  const parsedExpectedContributionAmount = Number(expectedContributionAmount.replace(/[^0-9]/g, '') || 0);
   const canSubmit = Boolean(
     trimmedName &&
       trimmedRegistrationNumber &&
       trimmedStateName &&
-      trimmedBvn.length === 11,
+      trimmedBvn.length === 11 &&
+      parsedExpectedContributionAmount > 0,
   );
 
   async function handleCreate() {
@@ -47,6 +50,7 @@ export function AdminCooperativePage() {
         stateName: trimmedStateName,
         cooperativeType,
         bvn: trimmedBvn,
+        expectedContributionAmount: parsedExpectedContributionAmount,
       });
       localStorage.setItem('verifund_cooperative_id', response.cooperative.id);
       if (response.virtualAccount.accountNumber) {
@@ -64,6 +68,7 @@ export function AdminCooperativePage() {
       setRegistrationNumber('');
       setStateName('');
       setBvn('');
+      setExpectedContributionAmount('20000');
     } catch (err) {
       setError((err as Error).message || 'Failed to create cooperative');
     } finally {
@@ -114,6 +119,16 @@ export function AdminCooperativePage() {
           />
         </label>
 
+        <label className="input-block">
+          <span>Contribution Amount (NGN)</span>
+          <input
+            value={expectedContributionAmount}
+            onChange={(e) => setExpectedContributionAmount(e.target.value.replace(/[^0-9]/g, ''))}
+            placeholder="20000"
+            inputMode="numeric"
+          />
+        </label>
+
         {error && (
           <div className="callout" style={{ marginTop: 12 }}>
             {error}
@@ -130,6 +145,12 @@ export function AdminCooperativePage() {
         {bvn && trimmedBvn.length !== 11 && (
           <div className="callout" style={{ marginTop: 12 }}>
             BVN is required and must be 11 digits.
+          </div>
+        )}
+
+        {expectedContributionAmount && parsedExpectedContributionAmount <= 0 && (
+          <div className="callout" style={{ marginTop: 12 }}>
+            Contribution amount must be greater than zero.
           </div>
         )}
 
@@ -153,6 +174,14 @@ export function AdminCooperativePage() {
           <div>
             <span>Virtual Account</span>
             <strong>{result?.virtualAccount.accountNumber ?? result?.cooperative.nombaVirtualAccountNumber ?? 'Pending'}</strong>
+          </div>
+          <div>
+            <span>Contribution Amount</span>
+            <strong>
+              {result?.cooperative.expectedContributionAmount
+                ? `₦${result.cooperative.expectedContributionAmount.toLocaleString('en-NG')}`
+                : 'Not set'}
+            </strong>
           </div>
           <div>
             <span>Nomba Provider</span>
