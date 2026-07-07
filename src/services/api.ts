@@ -41,7 +41,20 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(errorMsg);
   }
 
-  return (await response.json()) as T;
+  return (await response.json().catch(() => ({}))) as T;
+}
+
+function asArray<T>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+function asNumber(value: unknown, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function asString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback;
 }
 
 export type HealthResponse = {
@@ -132,9 +145,20 @@ type RawAlertItem = Omit<AlertItem, "evidence"> & {
   evidence?: Record<string, unknown>;
 };
 
-function normalizeAlert(alert: RawAlertItem): AlertItem {
+function normalizeAlert(alert: Partial<RawAlertItem> = {}): AlertItem {
   return {
     ...alert,
+    id: asString(alert.id, "unknown-alert"),
+    cooperativeId: asString(alert.cooperativeId),
+    alertType: asString(alert.alertType, "unknown"),
+    riskScore: asNumber(alert.riskScore),
+    triggeredBy: asString(alert.triggeredBy, "system"),
+    evidenceJson: alert.evidenceJson ?? {},
+    status: asString(alert.status, "open"),
+    createdAt: asString(alert.createdAt, new Date().toISOString()),
+    title: asString(alert.title, "Fraud alert"),
+    reason: asString(alert.reason, "No reason supplied."),
+    severity: asString(alert.severity, "Low") as AlertItem["severity"],
     evidence: alert.evidence ?? alert.evidenceJson ?? {},
   };
 }
@@ -166,10 +190,153 @@ type RawQueueItem = Omit<QueueItem, "requestedBy"> & {
   requestedById?: string;
 };
 
-function normalizeQueueItem(item: RawQueueItem): QueueItem {
+function normalizeQueueItem(item: Partial<RawQueueItem> = {}): QueueItem {
   return {
     ...item,
-    requestedBy: item.requestedBy ?? item.requestedById ?? "unknown",
+    id: asString(item.id, "unknown-withdrawal"),
+    cooperativeId: asString(item.cooperativeId),
+    requestedBy: asString(item.requestedBy ?? item.requestedById, "unknown"),
+    amount: asNumber(item.amount),
+    destinationAccount: asString(item.destinationAccount),
+    destinationBankCode: asString(item.destinationBankCode),
+    purpose: asString(item.purpose),
+    riskScore: asNumber(item.riskScore),
+    status: asString(item.status, "pending"),
+    createdAt: asString(item.createdAt, new Date().toISOString()),
+    average30d: asNumber(item.average30d),
+    signatureCount: asNumber(item.signatureCount),
+    explanations: asArray<string>(item.explanations),
+    ref: item.ref,
+    initiated: item.initiated,
+    recipient: item.recipient,
+    sigs: item.sigs,
+  };
+}
+
+function normalizeDashboard(data: Partial<DashboardResponse>): DashboardResponse {
+  return {
+    balance: asNumber(data.balance),
+    nextContribution: asString(data.nextContribution, "Unavailable"),
+    tenure: asString(data.tenure, "Unavailable"),
+    trustScore: asNumber(data.trustScore),
+    loanStatus: asString(data.loanStatus, "Unavailable"),
+    activityFeed: asArray<Partial<DashboardResponse["activityFeed"][number]>>(data.activityFeed).map((item, index) => ({
+      id: asString(item.id, `activity-${index}`),
+      title: asString(item.title, "Activity"),
+      text: asString(item.text, "No details supplied."),
+      time: asString(item.time, "recently"),
+    })),
+    contributionTrend: asArray<number>(data.contributionTrend).map((value) => asNumber(value)),
+    contributionHistory: asArray<Partial<DashboardResponse["contributionHistory"][number]>>(data.contributionHistory).map(
+      (item, index) => ({
+        id: asString(item.id, `contribution-${index}`),
+        date: asString(item.date, "Unknown date"),
+        amount: asNumber(item.amount),
+        status: asString(item.status, "confirmed") as DashboardResponse["contributionHistory"][number]["status"],
+        reference: asString(item.reference, "N/A"),
+      }),
+    ),
+    cooperativeId: asString(data.cooperativeId),
+    healthScore: asNumber(data.healthScore),
+  };
+}
+
+function normalizeRiskSignal(signal?: Partial<RiskSignal>): RiskSignal {
+  return {
+    riskScore: asNumber(signal?.riskScore),
+    riskCategory: asString(signal?.riskCategory, "low"),
+    reasons: asArray<string>(signal?.reasons),
+  };
+}
+
+function normalizeRiskDashboard(data: Partial<RiskDashboardResponse>): RiskDashboardResponse {
+  return {
+    cooperativeId: asString(data.cooperativeId),
+    ...normalizeRiskSignal(data),
+    contributionSignal: normalizeRiskSignal(data.contributionSignal),
+  };
+}
+
+function normalizeTrustScore(data: Partial<TrustScoreResponse>): TrustScoreResponse {
+  return {
+    id: asString(data.id),
+    name: asString(data.name, "Unknown cooperative"),
+    score: asNumber(data.score),
+    summary: asString(data.summary, "Trust score is unavailable."),
+    scoreBreakdown: asArray<TrustScoreResponse["scoreBreakdown"][number]>(data.scoreBreakdown),
+    history: asArray<number>(data.history).map((value) => asNumber(value)),
+  };
+}
+
+function normalizeCooperative(data: Partial<CooperativeResponse>): CooperativeResponse {
+  return {
+    id: asString(data.id),
+    name: asString(data.name, "Unknown cooperative"),
+    registrationNumber: asString(data.registrationNumber),
+    state: asString(data.state),
+    cooperativeType: asString(data.cooperativeType, "thrift"),
+    nombaVirtualAccountRef: asString(data.nombaVirtualAccountRef),
+    nombaAccountId: asString(data.nombaAccountId),
+    nombaVirtualAccountNumber: data.nombaVirtualAccountNumber,
+    healthScore: asNumber(data.healthScore),
+    healthScoreUpdatedAt: data.healthScoreUpdatedAt,
+    isActive: Boolean(data.isActive),
+    memberCount: asNumber(data.memberCount),
+    balance: asNumber(data.balance),
+    expectedContributionAmount:
+      data.expectedContributionAmount === undefined
+        ? undefined
+        : asNumber(data.expectedContributionAmount),
+    trustHistory: data.trustHistory
+      ? asArray<number>(data.trustHistory).map((value) => asNumber(value))
+      : undefined,
+    scoreBreakdown: data.scoreBreakdown
+      ? asArray<NonNullable<CooperativeResponse["scoreBreakdown"]>[number]>(data.scoreBreakdown)
+      : undefined,
+  };
+}
+
+function normalizeAuditEvent(event: Partial<AuditEvent> = {}, index = 0): AuditEvent {
+  return {
+    id: asString(event.id, `audit-${index}`),
+    cooperativeId: asString(event.cooperativeId),
+    eventType: asString(event.eventType, "audit_event"),
+    description: asString(event.description, "No description supplied."),
+    metadata: event.metadata && typeof event.metadata === "object" ? event.metadata : {},
+    createdAt: asString(event.createdAt, new Date().toISOString()),
+  };
+}
+
+function normalizeWithdrawalResponse(response: Partial<RequestWithdrawalResponse> = {}): RequestWithdrawalResponse {
+  return {
+    withdrawalId: asString(response.withdrawalId),
+    riskScore: asNumber(response.riskScore),
+    riskCategory: asString(response.riskCategory, "low"),
+    reasons: asArray<string>(response.reasons),
+    signals: response.signals,
+    status: asString(response.status, "pending"),
+    explanations: asArray<string>(response.explanations),
+    destinationAccountName: response.destinationAccountName ?? null,
+  };
+}
+
+function normalizeContributionResponse(response: Partial<ContributionResponse> = {}): ContributionResponse {
+  return {
+    contribution: {
+      id: asString(response.contribution?.id),
+      memberId: asString(response.contribution?.memberId),
+      cooperativeId: asString(response.contribution?.cooperativeId),
+      amount: asNumber(response.contribution?.amount),
+      nombaTransactionRef: asString(response.contribution?.nombaTransactionRef),
+      status: asString(response.contribution?.status, "confirmed"),
+      riskScore: asNumber(response.contribution?.riskScore),
+      contributedAt: asString(response.contribution?.contributedAt, new Date().toISOString()),
+    },
+    result: {
+      riskScore: asNumber(response.result?.riskScore),
+      riskCategory: asString(response.result?.riskCategory, "low"),
+      reasons: asArray<string>(response.result?.reasons),
+    },
   };
 }
 
@@ -274,17 +441,23 @@ export type CreateCooperativePayload = {
 };
 
 export async function createCooperative(payload: CreateCooperativePayload) {
-  return request<{ cooperative: CooperativeResponse; virtualAccount: VirtualAccountResponse }>(
+  const response = await request<{ cooperative: Partial<CooperativeResponse>; virtualAccount: VirtualAccountResponse }>(
     "/cooperative",
     {
       method: "POST",
       body: JSON.stringify(payload),
     },
   );
+  return {
+    cooperative: normalizeCooperative(response.cooperative ?? {}),
+    virtualAccount: response.virtualAccount ?? {},
+  };
 }
 
 export async function getCooperative(cooperativeId: string) {
-  return request<CooperativeResponse>(`/cooperative/${encodeURIComponent(cooperativeId)}`);
+  return normalizeCooperative(
+    await request<Partial<CooperativeResponse>>(`/cooperative/${encodeURIComponent(cooperativeId)}`),
+  );
 }
 
 export async function lookupCooperative(cooperativeId: string) {
@@ -295,28 +468,37 @@ export async function getDashboard(cooperativeId?: string) {
   const suffix = cooperativeId
     ? `?cooperativeId=${encodeURIComponent(cooperativeId)}`
     : "";
-  return request<DashboardResponse>(`/dashboard${suffix}`);
+  return normalizeDashboard(await request<Partial<DashboardResponse>>(`/dashboard${suffix}`));
 }
 
 export async function getTrustScore(cooperativeId: string) {
-  return request<TrustScoreResponse>(
-    `/cooperative/${encodeURIComponent(cooperativeId)}/trust-score`,
+  return normalizeTrustScore(
+    await request<Partial<TrustScoreResponse>>(
+      `/cooperative/${encodeURIComponent(cooperativeId)}/trust-score`,
+    ),
   );
 }
 
 export async function getAuditLog(cooperativeId: string) {
-  return request<AuditLogResponse>(`/audit/log/${encodeURIComponent(cooperativeId)}`);
+  const response = await request<Partial<AuditLogResponse>>(`/audit/log/${encodeURIComponent(cooperativeId)}`);
+  return { events: asArray<Partial<AuditEvent>>(response.events).map(normalizeAuditEvent) };
 }
 
 export async function getRiskDashboard(cooperativeId: string) {
-  return request<RiskDashboardResponse>(`/risk/${encodeURIComponent(cooperativeId)}`);
+  return normalizeRiskDashboard(
+    await request<Partial<RiskDashboardResponse>>(`/risk/${encodeURIComponent(cooperativeId)}`),
+  );
 }
 
 export async function getBanks() {
-  return request<{
+  const response = await request<{
     banks: Array<{ code: string; name: string }>;
     mode: string;
   }>("/nomba/banks");
+  return {
+    banks: asArray<{ code: string; name: string }>(response.banks),
+    mode: asString(response.mode, "unknown"),
+  };
 }
 
 export async function verifyAccount(accountNumber: string, bankCode: string) {
@@ -421,22 +603,22 @@ export async function queueTestNombaCredit(payload: {
 }
 
 export async function getAlerts() {
-  const response = await request<{ alerts: RawAlertItem[] }>("/alerts");
-  return { alerts: response.alerts.map(normalizeAlert) };
+  const response = await request<{ alerts: Array<Partial<RawAlertItem>> }>("/alerts");
+  return { alerts: asArray<Partial<RawAlertItem>>(response.alerts).map(normalizeAlert) };
 }
 
 export async function getAlert(id: string) {
-  const alert = await request<RawAlertItem>(`/alerts/${id}`);
+  const alert = await request<Partial<RawAlertItem>>(`/alerts/${id}`);
   return normalizeAlert(alert);
 }
 
 export async function getQueue() {
-  const response = await request<{ queue: RawQueueItem[] }>("/withdrawals");
-  return { queue: response.queue.map(normalizeQueueItem) };
+  const response = await request<{ queue: Array<Partial<RawQueueItem>> }>("/withdrawals");
+  return { queue: asArray<Partial<RawQueueItem>>(response.queue).map(normalizeQueueItem) };
 }
 
 export async function getQueueItem(id: string) {
-  const item = await request<RawQueueItem>(`/withdrawals/${id}`);
+  const item = await request<Partial<RawQueueItem>>(`/withdrawals/${id}`);
   return normalizeQueueItem(item);
 }
 
@@ -484,17 +666,31 @@ export type WithdrawalRiskPreviewResponse = {
 };
 
 export async function previewWithdrawalRisk(payload: WithdrawalRiskPreviewPayload) {
-  return request<WithdrawalRiskPreviewResponse>("/withdrawals/request/preview", {
+  const response = await request<Partial<WithdrawalRiskPreviewResponse>>("/withdrawals/request/preview", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return {
+    riskScore: asNumber(response.riskScore),
+    riskCategory: asString(response.riskCategory, "low"),
+    reasons: asArray<string>(response.reasons),
+    signals: {
+      ratio: asNumber(response.signals?.ratio, 1),
+      zScore: asNumber(response.signals?.zScore),
+      signatureCount: asNumber(response.signals?.signatureCount),
+      destinationVerified: Boolean(response.signals?.destinationVerified),
+      bvnDuplicate: Boolean(response.signals?.bvnDuplicate),
+    },
+    explanation: asArray<string>(response.explanation),
+  };
 }
 
 export async function requestWithdrawal(payload: RequestWithdrawalPayload) {
-  return request<RequestWithdrawalResponse>("/withdrawals/request", {
+  const response = await request<Partial<RequestWithdrawalResponse>>("/withdrawals/request", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return normalizeWithdrawalResponse(response);
 }
 
 export type SignWithdrawalPayload = {
@@ -558,10 +754,11 @@ export type ContributionResponse = {
 };
 
 export async function submitContribution(payload: ContributionPayload) {
-  return request<ContributionResponse>(`/contribution`, {
+  const response = await request<Partial<ContributionResponse>>(`/contribution`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  return normalizeContributionResponse(response);
 }
 
 export type WhistleblowerReportPayload = {

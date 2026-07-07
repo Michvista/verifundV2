@@ -4,9 +4,10 @@ import { SectionCard } from '../components/SectionCard';
 import { StatusPill } from '../components/StatusPill';
 import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
 import type { NombaCronStatus } from '../services/api';
+import { readStorage } from '../services/browserStorage';
 
 function loadCooperativeId() {
-  return localStorage.getItem('verifund_cooperative_id') || '';
+  return readStorage('verifund_cooperative_id') || '';
 }
 
 export function TransactionsPage() {

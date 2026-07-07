@@ -268,6 +268,14 @@ h1, h2, h3, p {
   padding: 26px 28px 34px;
 }
 
+.app-error {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--bg-soft);
+}
+
 .page-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 350px;
@@ -624,7 +632,7 @@ h1, h2, h3, p {
   color: var(--secondary);
 }
 
-.landing-nav__actions a:last-child {
+.landing-nav__actions a.landing-nav__cta {
   min-width: 76px;
   padding: 0 16px;
   background: var(--secondary);

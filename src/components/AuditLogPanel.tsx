@@ -25,6 +25,10 @@ function summarizeMetadata(metadata: Record<string, unknown>) {
     .join(', ');
 }
 
+function formatEventType(value: string | undefined) {
+  return (value || 'audit_event').split('_').join(' ');
+}
+
 export function AuditLogPanel({ cooperativeId }: Props) {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(false);
@@ -86,7 +90,7 @@ export function AuditLogPanel({ cooperativeId }: Props) {
       </div>
       {events.map((event) => (
         <div className="table__row" key={event.id}>
-          <span>{event.eventType.split('_').join(' ')}</span>
+          <span>{formatEventType(event.eventType)}</span>
           <span>{event.description}</span>
           <span>{summarizeMetadata(event.metadata)}</span>
           <span>{formatDate(event.createdAt)}</span>

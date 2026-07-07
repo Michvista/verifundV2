@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { navItems } from '../data';
 import type { UserRole } from '../services/session';
+import { readStorage } from '../services/browserStorage';
 import {
   IconAlert,
   IconBell,
@@ -21,7 +22,7 @@ import {
 } from './icons';
 
 function loadCooperativeId() {
-  return localStorage.getItem('verifund_cooperative_id') || '';
+  return readStorage('verifund_cooperative_id') || '';
 }
 
 export const ACTIVE_COOPERATIVE_EVENT = 'verifund-active-cooperative-change';
@@ -90,6 +91,12 @@ export function Shell() {
   const primaryNavItems = visibleNavItems.filter((item) => item.group !== 'secondary');
   const secondaryNavItems = visibleNavItems.filter((item) => item.group === 'secondary');
   const canManageCooperative = user?.role === 'admin';
+  const userInitials = user
+    ? `${user.firstName?.charAt(0) ?? ''}${user.lastName?.charAt(0) ?? ''}` || 'U'
+    : '';
+  const userDisplayName = user
+    ? [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Signed in user'
+    : '';
 
   const shouldUseDarkFrame =
     location.pathname.startsWith('/cooperative') &&
@@ -109,10 +116,10 @@ export function Shell() {
 
         {user && (
           <div className="sidebar-user">
-            <div className="sidebar-user__avatar">{user.firstName.charAt(0)}{user.lastName.charAt(0)}</div>
+            <div className="sidebar-user__avatar">{userInitials}</div>
             <div>
               <div className="sidebar-user__name">
-                {user.firstName} {user.lastName}
+                {userDisplayName}
               </div>
               <div className="sidebar-user__role">{user.role}</div>
             </div>

@@ -5,13 +5,15 @@ type Props = {
 };
 
 export function BarChart({ values, height = 180, greenFrom = 9 }: Props) {
-  if (!values.length) {
+  const safeValues = values.filter(Number.isFinite);
+
+  if (!safeValues.length) {
     return <div className="empty-state">No history available.</div>;
   }
-  const max = Math.max(...values);
+  const max = Math.max(...safeValues, 1);
   return (
     <div className="bar-chart" aria-hidden="true">
-      {values.map((value, index) => (
+      {safeValues.map((value, index) => (
         <div
           key={index}
           className={`bar-chart__bar ${index >= greenFrom ? 'bar-chart__bar--green' : ''}`}

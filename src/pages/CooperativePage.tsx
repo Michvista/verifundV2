@@ -7,18 +7,14 @@ import { BarChart } from '../components/BarChart';
 import { AuditLogPanel } from '../components/AuditLogPanel';
 import { getCooperative, type CooperativeResponse } from '../services/api';
 import { ACTIVE_COOPERATIVE_EVENT } from '../components/Shell';
+import { readJsonStorage, readStorage } from '../services/browserStorage';
 
 function loadCooperativeId() {
-  return localStorage.getItem('verifund_cooperative_id') || '';
+  return readStorage('verifund_cooperative_id') || '';
 }
 
 function loadVirtualAccount() {
-  try {
-    const raw = localStorage.getItem('verifund_virtual_account');
-    return raw ? JSON.parse(raw) as { accountNumber: string; bankName: string } : null;
-  } catch {
-    return null;
-  }
+  return readJsonStorage<{ accountNumber: string; bankName: string }>('verifund_virtual_account');
 }
 
 export function CooperativePage() {
