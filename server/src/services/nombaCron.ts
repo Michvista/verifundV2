@@ -40,11 +40,17 @@ function normalizeTransactions(payload: Array<Record<string, unknown>>) {
         entry.ref ??
         '',
     );
+    // IMPORTANT: on /v1/transactions/virtual responses, `accountNumber` is the SENDER's
+    // account, not the virtual account being credited. `recipientAccountNumber` is the
+    // field that actually identifies the destination virtual account. Using
+    // `accountNumber` here was the root cause of crediting other people's transactions
+    // to this cooperative.
     const accountNumber = String(
-      entry.accountNumber ?? entry.destinationAccount ?? entry.virtualAccountNumber ?? entry.account ?? '',
+      entry.recipientAccountNumber ?? entry.destinationAccount ?? entry.virtualAccountNumber ?? '',
     );
-    const direction = String(entry.direction ?? entry.transactionType ?? entry.type ?? '').toLowerCase();
+    const direction = String(entry.direction ?? entry.entryType ?? entry.transactionType ?? entry.type ?? '').toLowerCase();
     const status = String(entry.status ?? entry.transactionStatus ?? '').toUpperCase();
+    const type = String(entry.type ?? '').toLowerCase();
 
     return {
       amount,
@@ -52,6 +58,7 @@ function normalizeTransactions(payload: Array<Record<string, unknown>>) {
       accountNumber,
       direction,
       status,
+      type,
       raw: entry,
     };
   });
@@ -59,6 +66,9 @@ function normalizeTransactions(payload: Array<Record<string, unknown>>) {
 
 function isCreditTransaction(item: ReturnType<typeof normalizeTransactions>[number]) {
   if (!item.amount || item.amount <= 0) return false;
+  // Require this to actually be a virtual-account transfer, not just any
+  // transaction that happens to carry a "credit"-ish direction/status.
+  if (item.type && item.type !== 'vact_transfer') return false;
   const directionSignals = ['credit', 'cr', 'inbound', 'received'];
   const statusSignals = ['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'SETTLED'];
   return (
@@ -137,10 +147,13 @@ export async function runNombaCreditSync(trigger: PollResult['trigger'] = 'manua
 
         for (const tx of normalized) {
           if (!isCreditTransaction(tx) || !tx.reference) continue;
+          // Strict match only. A missing recipient account number must NOT pass —
+          // that "trust it if we can't check it" fallback is what let unrelated
+          // transactions get credited to this cooperative before.
           const destinationMatches =
-            !cooperative.nombaVirtualAccountNumber || !tx.accountNumber
-              ? true
-              : tx.accountNumber === cooperative.nombaVirtualAccountNumber;
+            Boolean(cooperative.nombaVirtualAccountNumber) &&
+            Boolean(tx.accountNumber) &&
+            tx.accountNumber === cooperative.nombaVirtualAccountNumber;
           if (!destinationMatches) continue;
 
           matchedCooperatives += 1;
