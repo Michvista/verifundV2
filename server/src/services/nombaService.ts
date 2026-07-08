@@ -434,19 +434,16 @@ export async function fetchBanks() {
 // in order and fall back to [] if all of them fail.
 // ---------------------------------------------------------------------------
 
-async function tryFetchTransactions(path: string, query: URLSearchParams, headers: Record<string, string>) {
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  const data = await nombaRequest<any>(`${path}${suffix}`, { method: 'GET', headers });
-  const transactions = Array.isArray(data)
-    ? data
-    : Array.isArray(data?.results)
-      ? data.results
-      : Array.isArray(data?.transactions)
-        ? data.transactions
-        : [];
-  return transactions;
-}
-
+/**
+ * There is exactly ONE endpoint scoped to a single virtual account:
+ * GET /v1/transactions/virtual?virtual_account=<accountNumber>
+ *
+ * /v1/transactions/accounts does NOT accept a virtualAccount/accountNumber filter —
+ * calling it with one silently ignores the param and returns every transaction on the
+ * whole parent/merchant account (this is exactly what caused the ₦2,100 mis-credit:
+ * the old fallback chain tried that endpoint first, it "succeeded" with a 200, and the
+ * real /v1/transactions/virtual call never ran).
+ */
 export async function fetchAccountTransactions(args: { accountNumber?: string; accountRef?: string } = {}) {
   if (!isNombaConfigured()) {
     warnMockMode('fetchAccountTransactions');
@@ -455,79 +452,41 @@ export async function fetchAccountTransactions(args: { accountNumber?: string; a
     return result;
   }
 
-  // Sub-account scoping happens via query params, never by overwriting the
-  // accountId auth header (that header must always stay the parent ACCOUNT_ID).
-  const headers: Record<string, string> = {};
-
-  const attempts: Array<{ label: string; run: () => Promise<Array<Record<string, unknown>>> }> = [];
-
-  if (args.accountNumber) {
-    attempts.push({
-      label: 'virtualAccount param on /v1/transactions/accounts',
-      run: () => {
-        const q = new URLSearchParams();
-        q.set('virtualAccount', args.accountNumber as string);
-        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
-      },
-    });
-    attempts.push({
-      label: 'accountNumber param on /v1/transactions/accounts',
-      run: () => {
-        const q = new URLSearchParams();
-        q.set('accountNumber', args.accountNumber as string);
-        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
-      },
-    });
-    attempts.push({
-      label: 'virtual_account param on /v1/transactions/virtual',
-      run: () => {
-        const q = new URLSearchParams();
-        q.set('virtual_account', args.accountNumber as string);
-        return tryFetchTransactions('/v1/transactions/virtual', q, headers);
-      },
-    });
-  }
-
-  if (args.accountRef) {
-    attempts.push({
-      label: 'accountRef param on /v1/transactions/accounts',
-      run: () => {
-        const q = new URLSearchParams();
-        q.set('accountRef', args.accountRef as string);
-        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
-      },
-    });
-  }
-
-  if (!attempts.length) {
-    // No identifying info at all — nothing to query.
+  if (!args.accountNumber) {
+    // No virtual account number to scope by — do NOT fall back to an unscoped
+    // endpoint, since that would return every transaction on the merchant account.
     const result: Array<Record<string, unknown>> = [];
-    traceNombaCall('Fetch Account Transactions', args, result, 'no accountNumber/accountRef supplied');
+    traceNombaCall('Fetch Account Transactions', args, result, 'no accountNumber supplied — refusing unscoped fetch');
     return result;
   }
 
-  let lastError: any = null;
+  // Sub-account scoping happens via query params, never by overwriting the
+  // accountId auth header (that header must always stay the parent ACCOUNT_ID).
+  const query = new URLSearchParams();
+  query.set('virtual_account', args.accountNumber);
 
-  for (const attempt of attempts) {
-    try {
-      const transactions = await attempt.run();
-      traceNombaCall('Fetch Account Transactions', { ...args, strategy: attempt.label }, transactions);
-      return transactions;
-    } catch (error: any) {
-      lastError = error;
-      console.error('=== NOMBA FETCH ERROR ===');
-      console.error('Strategy:', attempt.label);
-      console.error('Account Number:', args.accountNumber);
-      console.error('Account Ref:', args.accountRef);
-      console.error(error.message);
-      // fall through and try the next strategy
-    }
+  try {
+    const data = await nombaRequest<any>(`/v1/transactions/virtual?${query.toString()}`, {
+      method: 'GET',
+      headers: {},
+    });
+    const transactions = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.results)
+        ? data.results
+        : Array.isArray(data?.transactions)
+          ? data.transactions
+          : [];
+    traceNombaCall('Fetch Account Transactions', args, transactions);
+    return transactions;
+  } catch (error: any) {
+    console.error('=== NOMBA FETCH ERROR ===');
+    console.error('Account Number:', args.accountNumber);
+    console.error(error.message);
+    traceNombaCall('Fetch Account Transactions', args, [], error.message);
+    // Never throw — resolve to [] so the cron loop keeps running and never crashes Render.
+    return [];
   }
-
-  // All strategies failed — log/trace and return [] so the cron loop keeps running
-  // and doesn't take Render down with it.
-  traceNombaCall('Fetch Account Transactions', args, [], lastError?.message);
-  return [];
 }
 
 // ---------------------------------------------------------------------------
