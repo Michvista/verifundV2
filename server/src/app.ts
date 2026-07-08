@@ -12,6 +12,9 @@ import { nombaRoutes } from './routes/nombaRoutes';
 import { riskRoutes } from './routes/riskRoutes';
 import { webhookRoutes } from './routes/webhookRoutes';
 import { withdrawalRoutes } from './routes/withdrawalRoutes';
+import { nombaDebugSearchController } from './controllers/nombaDebugSearchController';
+
+
 import { getFraudAlertData, getStateSnapshotData, getTrustScoreData, listFraudAlertsData } from './services/repository';
 import { isNombaConfigured } from './services/nombaService';
 import { databaseMode } from './services/db';
@@ -80,6 +83,7 @@ export function createApp() {
   app.use('/api/webhooks', webhookRoutes);
   app.use('/api/withdrawal', withdrawalRoutes);
   app.use('/api/withdrawals', withdrawalRoutes);
+app.get('/api/debug/nomba-search', nombaDebugSearchController);
 
   app.get('/api/trust-score/:id', async (req, res) => {
     res.json(await getTrustScoreData(req.params.id));
