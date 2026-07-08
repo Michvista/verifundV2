@@ -70,9 +70,18 @@ function isCreditTransaction(item: ReturnType<typeof normalizeTransactions>[numb
 export function startNombaCron() {
   if (intervalHandle) return;
   intervalHandle = setInterval(() => {
-    void runNombaCreditSync('scheduled');
+    void runNombaCreditSync('scheduled').catch((error) => {
+      // Defense in depth: runNombaCreditSync shouldn't throw (fetchAccountTransactions
+      // no longer throws), but if something unexpected does, never let it kill the
+      // interval or crash the process — just log and let the next tick try again.
+      console.error('=== NOMBA CRON TICK FAILED (non-fatal) ===');
+      console.error(error);
+    });
   }, DEFAULT_INTERVAL_MS);
-  void runNombaCreditSync('scheduled');
+  void runNombaCreditSync('scheduled').catch((error) => {
+    console.error('=== NOMBA CRON INITIAL RUN FAILED (non-fatal) ===');
+    console.error(error);
+  });
 }
 
 export function stopNombaCron() {
@@ -84,22 +93,29 @@ export function stopNombaCron() {
 export async function runNombaCreditSync(trigger: PollResult['trigger'] = 'manual') {
   const pendingBefore = listPendingTreasuryCredits().length;
   const queuedCredits: Array<{ id: string; cooperativeId: string; nombaTransactionRef: string }> = [];
+
   for (const credit of [...listPendingTreasuryCredits()]) {
-    const result = await recordTreasuryCreditData({
-      cooperativeId: credit.cooperativeId,
-      amount: credit.amount,
-      nombaTransactionRef: credit.nombaTransactionRef,
-      source: credit.source,
-    });
-    if (result.processed) {
-      queuedCredits.push({
-        id: credit.id,
+    try {
+      const result = await recordTreasuryCreditData({
         cooperativeId: credit.cooperativeId,
+        amount: credit.amount,
         nombaTransactionRef: credit.nombaTransactionRef,
+        source: credit.source,
       });
-      removePendingTreasuryCredit(credit.id);
+      if (result.processed) {
+        queuedCredits.push({
+          id: credit.id,
+          cooperativeId: credit.cooperativeId,
+          nombaTransactionRef: credit.nombaTransactionRef,
+        });
+        removePendingTreasuryCredit(credit.id);
+      }
+    } catch (error) {
+      // One bad queued credit shouldn't block the rest of the queue or the poll run.
+      console.error('=== FAILED TO PROCESS QUEUED CREDIT (non-fatal) ===', credit.id, error);
     }
   }
+
   let scannedTransactions = 0;
   let processedCredits = queuedCredits.length;
   let matchedCooperatives = 0;
@@ -108,31 +124,38 @@ export async function runNombaCreditSync(trigger: PollResult['trigger'] = 'manua
 
   if (isNombaConfigured() && cooperatives.length) {
     for (const cooperative of cooperatives) {
-      const transactions = await fetchAccountTransactions({
-        accountNumber: cooperative.nombaVirtualAccountNumber,
-        accountRef: cooperative.nombaVirtualAccountRef,
-      });
-      const normalized = normalizeTransactions(transactions as Array<Record<string, unknown>>);
-      scannedTransactions += normalized.length;
-
-      for (const tx of normalized) {
-        if (!isCreditTransaction(tx) || !tx.reference) continue;
-        const destinationMatches =
-          !cooperative.nombaVirtualAccountNumber || !tx.accountNumber
-            ? true
-            : tx.accountNumber === cooperative.nombaVirtualAccountNumber;
-        if (!destinationMatches) continue;
-
-        matchedCooperatives += 1;
-        const result = await recordTreasuryCreditData({
-          cooperativeId: cooperative.id,
-          amount: tx.amount,
-          nombaTransactionRef: tx.reference,
-          source: 'nomba-poll',
+      try {
+        // fetchAccountTransactions never throws — it resolves to [] on failure —
+        // but this try/catch also guards recordTreasuryCreditData below so one
+        // cooperative's bad data can't stop the rest of the sweep.
+        const transactions = await fetchAccountTransactions({
+          accountNumber: cooperative.nombaVirtualAccountNumber,
+          accountRef: cooperative.nombaVirtualAccountRef,
         });
-        if (result.processed) {
-          processedCredits += 1;
+        const normalized = normalizeTransactions(transactions as Array<Record<string, unknown>>);
+        scannedTransactions += normalized.length;
+
+        for (const tx of normalized) {
+          if (!isCreditTransaction(tx) || !tx.reference) continue;
+          const destinationMatches =
+            !cooperative.nombaVirtualAccountNumber || !tx.accountNumber
+              ? true
+              : tx.accountNumber === cooperative.nombaVirtualAccountNumber;
+          if (!destinationMatches) continue;
+
+          matchedCooperatives += 1;
+          const result = await recordTreasuryCreditData({
+            cooperativeId: cooperative.id,
+            amount: tx.amount,
+            nombaTransactionRef: tx.reference,
+            source: 'nomba-poll',
+          });
+          if (result.processed) {
+            processedCredits += 1;
+          }
         }
+      } catch (error) {
+        console.error('=== COOPERATIVE POLL FAILED (non-fatal) ===', cooperative.id, error);
       }
     }
   }
