@@ -429,6 +429,9 @@ export async function fetchAccountTransactions(args: { accountNumber?: string; a
       method: 'GET',
       headers,
     });
+console.log("=== NOMBA RESPONSE ===");
+console.log(JSON.stringify(data, null, 2));
+
     const transactions = Array.isArray(data)
       ? data
       : Array.isArray(data?.results)
@@ -439,9 +442,20 @@ export async function fetchAccountTransactions(args: { accountNumber?: string; a
     traceNombaCall('Fetch Account Transactions', args, transactions);
     return transactions;
   } catch (error: any) {
-    traceNombaCall('Fetch Account Transactions', args, [], error.message);
-    return [];
-  }
+  console.error("=== NOMBA FETCH ERROR ===");
+  console.error("Account Number:", args.accountNumber);
+  console.error("Account Ref:", args.accountRef);
+  console.error("Error:", error.message);
+
+  traceNombaCall(
+    "Fetch Account Transactions",
+    args,
+    [],
+    error.message
+  );
+
+  throw error;
+}
 }
 
 
