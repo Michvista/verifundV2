@@ -5,15 +5,14 @@ import { broadcastFeedEvent } from './realtime';
  * Real integration with the Nomba API (https://developer.nomba.com).
  *
  * Behaviour:
- *  - If NOMBA_CLIENT_ID / NOMBA_CLIENT_SECRET / NOMBA_ACCOUNT_ID are missing or still set to the
- *    placeholder values from .env.example, every function below falls back to a deterministic
- *    mock so the rest of the app (and demos) keep working without live credentials.
- *  - As soon as real credentials are present, calls go to the real Nomba sandbox or production
- *    API (controlled by NOMBA_ENV).
- *
- * Auth flow: POST /v1/auth/token/issue with { grant_type, client_id, client_secret } and an
- * `accountId` header returns a short-lived access_token, which we cache and reuse until it's
- * close to expiry (Nomba tokens last ~30 minutes).
+ * - If NOMBA_CLIENT_ID / NOMBA_CLIENT_SECRET / NOMBA_ACCOUNT_ID are missing or still set to the
+ *   placeholder values from .env.example, every function below falls back to a deterministic
+ *   mock so the rest of the app (and demos) keep working without live credentials.
+ * - As soon as real credentials are present, calls go to the real Nomba sandbox or production
+ *   API (controlled by NOMBA_ENV).
+ * - Auth flow: POST /v1/auth/token/issue with { grant_type, client_id, client_secret } and an
+ *   accountId header returns a short-lived access_token, which we cache and reuse until it's
+ *   close to expiry (Nomba tokens last ~30 minutes).
  */
 
 type NombaEnv = 'sandbox' | 'production';
@@ -23,6 +22,8 @@ const BASE_URL = NOMBA_ENV === 'production' ? 'https://api.nomba.com' : 'https:/
 
 const CLIENT_ID = process.env.NOMBA_CLIENT_ID;
 const CLIENT_SECRET = process.env.NOMBA_CLIENT_SECRET;
+// IMPORTANT: always authenticate with the PARENT account id. Nomba's guidance is that
+// sub-accounts are used to scope individual endpoint calls, not to authenticate with.
 const ACCOUNT_ID = process.env.NOMBA_ACCOUNT_ID;
 const SUB_ACCOUNT_ID = process.env.NOMBA_SUB_ACCOUNT_ID;
 const WEBHOOK_SECRET = process.env.NOMBA_WEBHOOK_SECRET;
@@ -109,15 +110,28 @@ async function getAccessToken(): Promise<string> {
 }
 
 async function nombaRequest<T = any>(
-  path: string, 
-  init: { method: string; body?: unknown; headers?: Record<string, string> }
+  path: string,
+  init: { method: string; body?: unknown; headers?: Record<string, string> },
 ): Promise<T> {
   const token = await getAccessToken();
+
+  console.log('===== NOMBA REQUEST =====');
+  console.log({
+    url: `${BASE_URL}${path}`,
+    method: init.method,
+    accountId: ACCOUNT_ID,
+    subAccount: SUB_ACCOUNT_ID,
+    extraHeaders: init.headers || {},
+  });
+
   const response = await fetch(`${BASE_URL}${path}`, {
     method: init.method,
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
+      // Always authenticate with the parent account id. Do NOT override this with
+      // SUB_ACCOUNT_ID here — sub-account scoping happens via query params / path segments
+      // on the individual endpoints below, not via this header.
       accountId: ACCOUNT_ID as string,
       ...(init.headers || {}),
     },
@@ -125,6 +139,10 @@ async function nombaRequest<T = any>(
   });
 
   const payload: any = await response.json().catch(() => null);
+
+  console.log('===== NOMBA RESPONSE =====');
+  console.log(response.status);
+  console.log(JSON.stringify(payload, null, 2));
 
   const failed = !response.ok || (payload?.code && !['00', '201'].includes(String(payload.code)));
   if (failed) {
@@ -183,10 +201,10 @@ export async function createVirtualAccount(args: {
     const accountRef = String(data?.accountRef ?? args.accountRef);
     const accountName = String(data?.accountName ?? args.accountName);
     const accountNumber =
-      String(data?.bankAccountNumber ?? data?.accountNumber ?? data?.virtualAccountNumber ?? '')
-      || accountId.replace(/[^0-9]/g, '').slice(-10)
-      || accountRef.replace(/[^0-9]/g, '').slice(-10)
-      || `90${String(virtualAccountSequence).slice(-8)}`;
+      String(data?.bankAccountNumber ?? data?.accountNumber ?? data?.virtualAccountNumber ?? '') ||
+      accountId.replace(/[^0-9]/g, '').slice(-10) ||
+      accountRef.replace(/[^0-9]/g, '').slice(-10) ||
+      `90${String(virtualAccountSequence).slice(-8)}`;
 
     const result = {
       success: true,
@@ -401,6 +419,34 @@ export async function fetchBanks() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Account transactions (polled by nombaCron.ts)
+//
+// IMPORTANT: this function must NEVER throw. It's called on every cron tick;
+// throwing here crashes the whole Render service and wipes any in-memory
+// state on restart. All failure paths below resolve to an empty array
+// instead, and log/trace the error for visibility.
+//
+// Endpoint note: Nomba's transaction-history routes/params have changed
+// across doc revisions, and some hackathon/sandbox accounts may not expose
+// transaction history at all (a persistent 403 here usually means account
+// scope/permissions, not a bug in this code). We try a few known variants
+// in order and fall back to [] if all of them fail.
+// ---------------------------------------------------------------------------
+
+async function tryFetchTransactions(path: string, query: URLSearchParams, headers: Record<string, string>) {
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  const data = await nombaRequest<any>(`${path}${suffix}`, { method: 'GET', headers });
+  const transactions = Array.isArray(data)
+    ? data
+    : Array.isArray(data?.results)
+      ? data.results
+      : Array.isArray(data?.transactions)
+        ? data.transactions
+        : [];
+  return transactions;
+}
+
 export async function fetchAccountTransactions(args: { accountNumber?: string; accountRef?: string } = {}) {
   if (!isNombaConfigured()) {
     warnMockMode('fetchAccountTransactions');
@@ -409,55 +455,80 @@ export async function fetchAccountTransactions(args: { accountNumber?: string; a
     return result;
   }
 
-  try {
-    let path = '/v1/transactions/accounts';
-    const query = new URLSearchParams();
-    const headers: Record<string, string> = {};
+  // Sub-account scoping happens via query params, never by overwriting the
+  // accountId auth header (that header must always stay the parent ACCOUNT_ID).
+  const headers: Record<string, string> = {};
 
-    if (args.accountNumber) {
-      path = '/v1/transactions/virtual';
-      query.set('virtual_account', args.accountNumber);
-      if (SUB_ACCOUNT_ID) {
-        headers['accountId'] = SUB_ACCOUNT_ID;
-      }
-    } else if (args.accountRef) {
-      query.set('accountRef', args.accountRef);
-    }
+  const attempts: Array<{ label: string; run: () => Promise<Array<Record<string, unknown>>> }> = [];
 
-    const suffix = query.toString() ? `?${query.toString()}` : '';
-    const data = await nombaRequest<any>(`${path}${suffix}`, { 
-      method: 'GET',
-      headers,
+  if (args.accountNumber) {
+    attempts.push({
+      label: 'virtualAccount param on /v1/transactions/accounts',
+      run: () => {
+        const q = new URLSearchParams();
+        q.set('virtualAccount', args.accountNumber as string);
+        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
+      },
     });
-console.log("=== NOMBA RESPONSE ===");
-console.log(JSON.stringify(data, null, 2));
+    attempts.push({
+      label: 'accountNumber param on /v1/transactions/accounts',
+      run: () => {
+        const q = new URLSearchParams();
+        q.set('accountNumber', args.accountNumber as string);
+        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
+      },
+    });
+    attempts.push({
+      label: 'virtual_account param on /v1/transactions/virtual',
+      run: () => {
+        const q = new URLSearchParams();
+        q.set('virtual_account', args.accountNumber as string);
+        return tryFetchTransactions('/v1/transactions/virtual', q, headers);
+      },
+    });
+  }
 
-    const transactions = Array.isArray(data)
-      ? data
-      : Array.isArray(data?.results)
-        ? data.results
-        : Array.isArray(data?.transactions)
-          ? data.transactions
-          : [];
-    traceNombaCall('Fetch Account Transactions', args, transactions);
-    return transactions;
-  } catch (error: any) {
-  console.error("=== NOMBA FETCH ERROR ===");
-  console.error("Account Number:", args.accountNumber);
-  console.error("Account Ref:", args.accountRef);
-  console.error("Error:", error.message);
+  if (args.accountRef) {
+    attempts.push({
+      label: 'accountRef param on /v1/transactions/accounts',
+      run: () => {
+        const q = new URLSearchParams();
+        q.set('accountRef', args.accountRef as string);
+        return tryFetchTransactions('/v1/transactions/accounts', q, headers);
+      },
+    });
+  }
 
-  traceNombaCall(
-    "Fetch Account Transactions",
-    args,
-    [],
-    error.message
-  );
+  if (!attempts.length) {
+    // No identifying info at all — nothing to query.
+    const result: Array<Record<string, unknown>> = [];
+    traceNombaCall('Fetch Account Transactions', args, result, 'no accountNumber/accountRef supplied');
+    return result;
+  }
 
-  throw error;
+  let lastError: any = null;
+
+  for (const attempt of attempts) {
+    try {
+      const transactions = await attempt.run();
+      traceNombaCall('Fetch Account Transactions', { ...args, strategy: attempt.label }, transactions);
+      return transactions;
+    } catch (error: any) {
+      lastError = error;
+      console.error('=== NOMBA FETCH ERROR ===');
+      console.error('Strategy:', attempt.label);
+      console.error('Account Number:', args.accountNumber);
+      console.error('Account Ref:', args.accountRef);
+      console.error(error.message);
+      // fall through and try the next strategy
+    }
+  }
+
+  // All strategies failed — log/trace and return [] so the cron loop keeps running
+  // and doesn't take Render down with it.
+  traceNombaCall('Fetch Account Transactions', args, [], lastError?.message);
+  return [];
 }
-}
-
 
 // ---------------------------------------------------------------------------
 // Webhook signature verification
@@ -466,11 +537,11 @@ console.log(JSON.stringify(data, null, 2));
 /**
  * Verifies an inbound Nomba webhook using HMAC-SHA256 over the raw request body with your
  * NOMBA_WEBHOOK_SECRET. Nomba's own examples show the digest encoded as either hex or base64
- * depending on the doc page, so this checks both (plus the common `sha256=` prefixed form) to
+ * depending on the doc page, so this checks both (plus the common sha256= prefixed form) to
  * maximize the chance of matching whatever your dashboard is configured to send. It always uses
  * a timing-safe comparison.
  *
- * IMPORTANT: this must be called with the *raw* (unparsed) request body bytes, not the
+ * IMPORTANT: this must be called with the raw (unparsed) request body bytes, not the
  * JSON-parsed object — see webhookController.ts / app.ts for how that's captured.
  */
 export function verifyWebhookSignature(rawBody: string | Buffer, signature: string | undefined | null): boolean {
