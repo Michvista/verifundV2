@@ -1,6 +1,25 @@
 import type { Request, Response } from 'express';
 
-
+/**
+ * TEMPORARY DIAGNOSTIC ROUTE — remove after debugging.
+ *
+ * Wire this up in your routes file, e.g.:
+ *   app.get('/api/debug/nomba-search', nombaDebugSearchController);
+ *
+ * Then just open in your phone browser:
+ *   https://<your-render-app>.onrender.com/api/debug/nomba-search
+ *
+ * It hits the UNSCOPED /v1/transactions/accounts endpoint (whole merchant account,
+ * not filtered to your virtual account) purely to answer one question: does a ₦50
+ * transaction exist ANYWHERE in the merchant's transaction history at all?
+ *
+ * If it shows up here with recipientAccountNumber "5187140495" → the money reached
+ * the right account, but /v1/transactions/virtual just isn't indexing it (report
+ * this to Nomba with the transactionId as evidence).
+ *
+ * If it does NOT show up here → the transfer either hasn't settled yet or went to
+ * a different account number than expected.
+ */
 export async function nombaDebugSearchController(req: Request, res: Response) {
   try {
     // Re-implement a minimal authenticated GET here so this route has zero
@@ -56,12 +75,15 @@ export async function nombaDebugSearchController(req: Request, res: Response) {
       senderName: entry.senderName,
     }));
 
+    const targetAccount = String(req.query.accountNumber || '5187140495');
+
     return res.json({
       ok: true,
       httpStatus: txResponse.status,
       totalResults: results.length,
+      queriedAccountNumber: targetAccount,
       matchesYourVirtualAccount: summary.filter(
-        (t: any) => t.accountNumber === '5187140495' || t.recipientAccountNumber === '5187140495',
+        (t: any) => t.accountNumber === targetAccount || t.recipientAccountNumber === targetAccount,
       ),
       allResults: summary,
     });
